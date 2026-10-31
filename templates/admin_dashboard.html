@@ -1,0 +1,2200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control COCODE - Aldea Champollap</title>
+    
+    <!-- Soporte PWA Móvil -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#dc2626">
+
+    <!-- Tipografías Plus Jakarta Sans y JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <!-- Leaflet base y complementos -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- Chart.js & SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #1e293b; border: 1px solid #334155; }
+        
+        /* Fondo Institucional con Imagen (Aldea Champollap)[cite: 3] */
+        body {
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.65), rgba(30, 41, 59, 0.75)), url('/static/recursos/f3.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        .dark body {
+            background: linear-gradient(to bottom, rgba(3, 7, 18, 0.82), rgba(12, 19, 34, 0.88)), url('/static/recursos/f3.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        /* Estilo de Tarjetas Tácticas (Glassmorphism Avanzado) */
+        .tarjeta-tactica {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dark .tarjeta-tactica {
+            background: rgba(12, 19, 34, 0.88);
+            border: 1px solid rgba(30, 41, 59, 0.8);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+        }
+        .tarjeta-tactica:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.08), 0 0 20px rgba(37, 99, 235, 0.1);
+        }
+        .dark .tarjeta-tactica:hover {
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 99, 235, 0.2);
+        }
+        
+        .leaflet-container {
+            font-family: inherit !important;
+            background: #f8fafc !important;
+        }
+        .leaflet-control-geocoder {
+            border-radius: 16px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05) !important;
+            border: 1px solid #e2e8f0 !important;
+            font-family: inherit !important;
+            background: #ffffff !important;
+        }
+        .dark .leaflet-control-geocoder {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        .leaflet-control-geocoder-form input {
+            font-size: 13px !important;
+            padding: 8px 14px !important;
+            outline: none !important;
+            border-radius: 12px !important;
+        }
+        .custom-poi-marker { background: transparent; border: none; }
+
+        /* Estilo del Modal Táctico Profesional de Confirmación */
+        .cyber-modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(1, 4, 8, 0.8); 
+            backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center; z-index: 9999;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .cyber-modal-backdrop.show { opacity: 1; pointer-events: auto; }
+        .cyber-modal {
+            background: #0f172a; border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 24px;
+            width: 440px; padding: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            position: relative; overflow: hidden; transform: scale(0.95); transition: transform 0.3s ease;
+        }
+        .cyber-modal-backdrop.show .cyber-modal { transform: scale(1); }
+        .cyber-modal::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #dc2626;
+        }
+    </style>
+</head>
+<body class="bg-[#f4f7fb] dark:bg-[#070b14] font-sans min-h-screen text-slate-800 dark:text-slate-100 antialiased selection:bg-red-500 selection:text-white transition-colors duration-200">
+
+    <!-- MODAL TÁCTICO PROFESIONAL (Sustituye al alert/confirm nativo) -->
+    <div class="cyber-modal-backdrop" id="cyberModalCustom">
+        <div class="cyber-modal space-y-4">
+            <div class="w-14 h-14 rounded-full bg-red-100 dark:bg-red-950/80 text-red-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+                <i class="ri-error-warning-fill"></i>
+            </div>
+            <div>
+                <h3 id="cyberModalTitle" class="font-bold text-base text-slate-900 dark:text-white font-mono uppercase">Confirmar Sanción</h3>
+                <p id="cyberModalMsg" class="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">¿Desea aplicar esta acción?</p>
+            </div>
+            <div class="flex items-center justify-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="cerrarCyberModal()" class="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition">Cancelar</button>
+                <button type="button" id="cyberModalBtnAceptar" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-md">Sí, Ejecutar</button>
+            </div>
+        </div>
+    </div>
+
+<!-- HEADER SUPERIOR ESTILO CENTRO DE MANDO -->
+    <header class="h-20 bg-white/80 dark:bg-[#0c1322]/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/80 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center text-white shadow-md shadow-red-500/20">
+                <i class="ri-shield-cross-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-slate-900 dark:text-white text-base tracking-tight leading-none">
+                    Champollap <span class="text-red-600">SOS</span>
+                </h1>
+                <p class="text-[11px] text-slate-400 font-medium mt-1">Panel de Control Comunitario &bull; COCODE</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 sm:gap-3">
+            <!-- IDENTIFICADOR VISUAL DE USUARIO ADMINISTRADOR -->
+            <div class="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 to-amber-500 text-white flex items-center justify-center font-bold text-xs font-mono shadow-sm">
+                    AD
+                </div>
+                <div class="hidden sm:block text-left">
+                    <span class="text-xs font-bold text-slate-900 dark:text-white block leading-tight truncate max-w-[140px]">{{ usuario.nombres }} {{ usuario.apellidos }}</span>
+                    <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 font-mono">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> {{ usuario.rol }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- BOTONES DE ACCIÓN RÁPIDA REDISEÑADOS -->
+            <button onclick="abrirModalComunicado()" class="hidden md:flex bg-gradient-to-r from-amber-50 to-amber-100/80 dark:from-amber-950/40 dark:to-amber-900/40 hover:from-amber-100 hover:to-amber-200 text-amber-900 dark:text-amber-200 border border-amber-200/80 dark:border-amber-800/60 px-4 py-2.5 rounded-2xl text-xs font-extrabold items-center gap-2 transition shadow-sm group">
+                <div class="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-sm group-hover:scale-110 transition">
+                    <i class="ri-megaphone-fill"></i>
+                </div>
+                <span>Aviso</span>
+            </button>
+
+            <button onclick="abrirModalCrearVecino()" class="hidden md:flex bg-gradient-to-r from-emerald-50 to-emerald-100/80 dark:from-emerald-950/40 dark:to-emerald-900/40 hover:from-emerald-100 hover:to-emerald-200 text-emerald-900 dark:text-emerald-200 border border-emerald-200/80 dark:border-emerald-800/60 px-4 py-2.5 rounded-2xl text-xs font-extrabold items-center gap-2 transition shadow-sm group">
+                <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs shadow-sm group-hover:scale-110 transition">
+                    <i class="ri-user-add-line"></i>
+                </div>
+                <span>Vecino</span>
+            </button>
+
+            <button onclick="abrirModalReporte()" class="hidden md:flex bg-gradient-to-r from-slate-900 to-slate-800 dark:from-red-700 dark:to-rose-600 hover:from-slate-800 hover:to-slate-700 dark:hover:from-red-600 dark:hover:to-rose-500 text-white px-4 py-2.5 rounded-2xl text-xs font-extrabold items-center gap-2 transition shadow-md group">
+                <div class="w-6 h-6 rounded-lg bg-red-500 text-white flex items-center justify-center text-xs shadow-sm group-hover:scale-110 transition">
+                    <i class="ri-add-circle-line"></i>
+                </div>
+                <span>Reporte</span>
+            </button>
+
+            <!-- SELECTOR MODO OSCURO -->
+            <button onclick="toggleModoOscuro()" id="btnTheme" class="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-yellow-400 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition shadow-sm hover:scale-105" title="Cambiar Tema">
+                <i id="iconoTheme" class="ri-moon-line text-lg"></i>
+            </button>
+
+            <!-- MENÚ DE NOTIFICACIONES -->
+            <div class="relative">
+                <button onclick="toggleMenuNotificaciones()" class="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition shadow-sm relative hover:scale-105" title="Avisos">
+                    <i class="ri-notification-3-line text-lg"></i>
+                    <span id="badgeNotificaciones" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-[#0c1322]">
+                        0
+                    </span>
+                </button>
+
+                <div id="dropdownNotificaciones" class="hidden absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
+                    <div class="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
+                        <span class="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                            <i class="ri-notification-badge-fill text-red-500"></i> Alertas y Auditoría
+                        </span>
+                        <button onclick="toggleMenuNotificaciones()" class="text-slate-400 hover:text-white text-sm"><i class="ri-close-line"></i></button>
+                    </div>
+                    <div id="listaNotificaciones" class="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 p-2 space-y-1">
+                        <div class="p-4 text-center text-xs text-slate-400 italic">No hay alertas recientes pendientes.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTÓN SALIR -->
+            <a href="/logout" title="Cerrar Sesión" class="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-500 hover:text-red-600 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition shadow-sm hover:scale-105">
+                <i class="ri-logout-box-r-line text-lg"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 sm:p-8 space-y-6">
+
+        <!-- BANNER DE ALERTA S.O.S EN VIVO -->
+        <div id="bannerAlertaSOS" class="hidden bg-gradient-to-r from-red-600 via-rose-600 to-red-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-red-600/20 flex flex-col sm:flex-row items-center justify-between gap-6 border border-red-400/30 animate-pulse">
+            <div class="space-y-1.5 text-center sm:text-left">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-black/30 rounded-full text-[11px] font-bold uppercase text-red-200 border border-red-300/30 font-mono">
+                    <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span> Emergencia S.O.S Activa
+                    <span id="sos-hora" class="ml-1 text-white"></span>
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                    <span id="sos-vecino">Vecino</span> requiere auxilio
+                </h2>
+                <p class="text-xs sm:text-sm text-red-100 max-w-xl leading-relaxed">
+                    Ubicación: <span id="sos-dir" class="italic font-semibold"></span> | Tel: <a id="sos-tel" href="#" class="underline text-yellow-200 font-mono"></a>
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-2.5 shrink-0">
+                <a id="btnSosWhatsApp" href="#" target="_blank" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                    <i class="ri-whatsapp-line text-sm"></i> WhatsApp Vecino
+                </a>
+                <button onclick="enfocarAlertaEnMapa()" class="px-4 py-2.5 bg-white text-red-700 hover:bg-slate-50 rounded-2xl text-xs font-bold shadow transition flex items-center gap-1.5">
+                    <i class="ri-navigation-line"></i> Localizar y Trazar Ruta
+                </button>
+                <button onclick="desactivarAlertaSOS()" class="px-4 py-2.5 bg-slate-950/80 hover:bg-slate-950 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 border border-white/20">
+                    <i class="ri-check-line"></i> Marcar Atendida
+                </button>
+            </div>
+        </div>
+
+<!-- CENTRO DE MANDO COMUNITARIO: TARJETAS DE MONITOREO COCODE -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            
+            <!-- TARJETA 1: BITÁCORA COMUNAL -->
+            <div class="bg-white dark:bg-[#0c1322] p-6 rounded-3xl border-2 border-indigo-100 dark:border-indigo-950/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:border-indigo-300 transition relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-50 dark:bg-indigo-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 font-mono block">Bitácora Comunal</span>
+                        <h3 id="kpi-total" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1.5 font-mono">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-md shadow-indigo-600/20">
+                        <i class="ri-community-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800 relative z-10">
+                    <span class="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                        <i class="ri-map-pin-range-line text-indigo-500"></i> Aldea Champollap
+                    </span>
+                    <span class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-bold font-mono">Total Casos</span>
+                </div>
+            </div>
+
+            <!-- TARJETA 2: REVISIÓN COCODE -->
+            <div class="bg-white dark:bg-[#0c1322] p-6 rounded-3xl border-2 border-amber-100 dark:border-amber-950/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:border-amber-300 transition relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 dark:bg-amber-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 font-mono block">Revisión COCODE</span>
+                        <h3 id="kpi-pendientes" class="text-3xl font-extrabold text-amber-600 mt-1.5 font-mono">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center text-xl shadow-md shadow-amber-500/20">
+                        <i class="ri-shield-keyhole-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800 relative z-10">
+                    <span class="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                        <i class="ri-time-line text-amber-500"></i> Validación pendiente
+                    </span>
+                    <span class="px-2 py-0.5 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold font-mono">En espera</span>
+                </div>
+            </div>
+
+            <!-- TARJETA 3: EMERGENCIAS ACTIVAS -->
+            <div class="bg-white dark:bg-[#0c1322] p-6 rounded-3xl border-2 border-rose-100 dark:border-rose-950/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:border-rose-300 transition relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-rose-50 dark:bg-rose-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 font-mono block">Emergencias Activas</span>
+                        <h3 id="kpi-criticas" class="text-3xl font-extrabold text-rose-600 mt-1.5 font-mono">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center text-xl shadow-md shadow-rose-600/20 animate-pulse">
+                        <i class="ri-alarm-warning-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800 relative z-10">
+                    <span class="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                        <i class="ri-error-warning-fill text-rose-500"></i> Alta / Crítica
+                    </span>
+                    <span class="px-2 py-0.5 bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-300 rounded-lg text-[10px] font-bold font-mono">Urgente</span>
+                </div>
+            </div>
+
+            <!-- TARJETA 4: PADRÓN VECINAL ACREDITADO -->
+            <div class="bg-white dark:bg-[#0c1322] p-6 rounded-3xl border-2 border-emerald-100 dark:border-emerald-950/60 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] hover:border-emerald-300 transition relative overflow-hidden group">
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-50 dark:bg-emerald-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-mono block">Padrón Vecinal</span>
+                        <h3 id="kpi-vecinos" class="text-3xl font-extrabold text-emerald-600 mt-1.5 font-mono">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-600/20">
+                        <i class="ri-team-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-100 dark:border-slate-800 relative z-10">
+                    <span class="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                        <i class="ri-shield-user-fill text-emerald-500"></i> Residentes Acreditados
+                    </span>
+                    <span class="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded-lg text-[10px] font-bold font-mono">Oficial</span>
+                </div>
+            </div>
+
+        </div>
+
+<!-- DIRECTORIO DE EMERGENCIAS DIRECTAS A 1 TOQUE (ESTILO CENTRO DE MANDO) -->
+        <div class="bg-white dark:bg-[#0c1322] p-6 rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <span class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 font-mono">
+                    <i class="ri-phone-fill text-red-500 text-base"></i> Directorio de Auxilio Directo
+                </span>
+                <span class="text-[11px] text-slate-400 font-medium">Marcación telefónica inmediata 24/7</span>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                <!-- TARJETA PNC -->
+                <a href="tel:110" class="p-5 rounded-3xl bg-white dark:bg-[#0c1322] border-2 border-blue-100 dark:border-blue-950/60 hover:border-blue-400 transition relative overflow-hidden group shadow-sm flex items-center justify-between">
+                    <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-50 dark:bg-blue-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md shadow-blue-600/20 group-hover:scale-105 transition shrink-0">
+                            <i class="ri-shield-star-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 font-mono block">Policía Nacional Civil</span>
+                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">PNC San Pedro</h4>
+                            <span class="text-xs font-mono text-blue-600 dark:text-blue-400 font-extrabold block mt-0.5">110 &bull; 7760-0000</span>
+                        </div>
+                    </div>
+                    <div class="relative z-10 shrink-0 text-right">
+                        <span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-xl text-[10px] font-bold font-mono inline-flex items-center gap-1 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition">
+                            <i class="ri-phone-call-line"></i> Llamar
+                        </span>
+                    </div>
+                </a>
+
+                <!-- TARJETA BOMBEROS -->
+                <a href="tel:122" class="p-5 rounded-3xl bg-white dark:bg-[#0c1322] border-2 border-amber-100 dark:border-amber-950/60 hover:border-amber-400 transition relative overflow-hidden group shadow-sm flex items-center justify-between">
+                    <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 dark:bg-amber-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center text-xl shadow-md shadow-amber-500/20 group-hover:scale-105 transition shrink-0">
+                            <i class="ri-first-aid-kit-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 font-mono block">Cuerpo de Socorro</span>
+                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">Bomberos Voluntarios</h4>
+                            <span class="text-xs font-mono text-amber-600 dark:text-amber-400 font-extrabold block mt-0.5">Línea 122</span>
+                        </div>
+                    </div>
+                    <div class="relative z-10 shrink-0 text-right">
+                        <span class="px-3 py-1.5 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 rounded-xl text-[10px] font-bold font-mono inline-flex items-center gap-1 shadow-sm group-hover:bg-amber-500 group-hover:text-slate-950 transition">
+                            <i class="ri-phone-call-line"></i> Llamar
+                        </span>
+                    </div>
+                </a>
+
+            </div>
+        </div>
+
+        <!-- MAPA GRANDE Y PROMINENTE (VISUALIZADOR CENTRAL) -->
+        <div id="mapa-seccion" class="bg-white dark:bg-[#0c1322] p-6 sm:p-8 rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="font-extrabold text-slate-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
+                        <i class="ri-map-pin-2-fill text-blue-600"></i> Georreferenciación y Cuadrantes de la Comunidad
+                    </h2>
+                    <p class="text-xs text-slate-400">Visualizador general de incidentes, sectores y puntos seguros en Aldea Champollap.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="toggleSectoresPoligonos()" id="btnPoligonos" class="px-4 py-2 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 hover:bg-blue-100 transition flex items-center gap-1.5 shadow-sm">
+                        <i class="ri-shape-line"></i> <span id="txtPoligonos">Ver Sectores</span>
+                    </button>
+                    <button onclick="toggleCapaInfraAdmin()" id="btnInfraAdmin" class="px-4 py-2 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 transition flex items-center gap-1.5 shadow-sm">
+                        <i class="ri-hospital-line"></i> <span id="txtInfraAdmin">Puntos Seguros</span>
+                    </button>
+                    <button onclick="toggleHeatmap()" id="btnHeatmap" class="px-4 py-2 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 shadow-sm">
+                        <i class="ri-fire-line text-orange-500"></i> <span id="txtHeatmap">Zonas de Calor</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="relative rounded-2xl border border-slate-200/80 dark:border-slate-700 overflow-hidden shadow-inner">
+                <div id="map" class="h-[420px] w-full z-0"></div>
+                <!-- Leyenda Flotante Moderna -->
+                <div class="absolute bottom-3 left-3 z-[400] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <span class="text-slate-400 font-bold uppercase text-[10px] font-mono mr-1">Referencias:</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block shadow-sm"></span> Crítico</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-amber-500 inline-block shadow-sm"></span> Alerta</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-emerald-600 inline-block shadow-sm"></span> Puntos Seguros</span>
+                </div>
+            </div>
+        </div>
+
+<!-- GRÁFICAS GENERALES DE SEGURIDAD (CENTRO DE MANDO) -->
+        <div id="estadisticas-seccion" class="bg-white dark:bg-[#0c1322] p-6 sm:p-8 rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 gap-2">
+                <div>
+                    <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="ri-pie-chart-2-fill text-indigo-600 text-lg"></i> Métricas de Seguridad Comunitaria
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Distribución de tipos de sucesos y efectividad de resolución en la aldea</p>
+                </div>
+                <span class="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded-full text-xs font-bold font-mono border border-indigo-200 dark:border-indigo-800/60 self-start sm:self-auto">
+                    Estadísticas Globales
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Contenedor Gráfica 1 -->
+                <div class="bg-slate-50/70 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">Tipos de Incidentes</span>
+                        <i class="ri-donut-chart-line text-slate-400 text-sm"></i>
+                    </div>
+                    <div class="h-60 relative w-full flex items-center justify-center">
+                        <canvas id="chartTipos"></canvas>
+                    </div>
+                </div>
+
+                <!-- Contenedor Gráfica 2 -->
+                <div class="bg-slate-50/70 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">Estado de Atención</span>
+                        <i class="ri-bar-chart-box-line text-slate-400 text-sm"></i>
+                    </div>
+                    <div class="h-60 relative w-full flex items-center justify-center">
+                        <canvas id="chartEstados"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANÁLISIS TEMPORAL (PATRONES HORARIOS Y DÍAS CRÍTICOS) -->
+        <div class="bg-white dark:bg-[#0c1322] p-6 sm:p-8 rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 gap-2">
+                <div>
+                    <h3 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="ri-time-line text-blue-600 text-lg"></i> Análisis Temporal y Patrones de Ocurrencia
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Identificación de franjas horarias y días de mayor frecuencia de incidentes en Aldea Champollap</p>
+                </div>
+                <span class="px-3 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 rounded-full text-xs font-bold font-mono border border-blue-200 dark:border-blue-800/60 self-start sm:self-auto">
+                    Patrón Temporal
+                </span>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Contenedor Gráfica 3: Franjas Horarias -->
+                <div class="bg-slate-50/70 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">Franja Horaria Crítica</span>
+                        <i class="ri-pulse-line text-blue-500 text-sm"></i>
+                    </div>
+                    <div class="h-56 relative w-full">
+                        <canvas id="chartHorarios"></canvas>
+                    </div>
+                </div>
+
+                <!-- Contenedor Gráfica 4: Días de la Semana -->
+                <div class="bg-slate-50/70 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 flex flex-col justify-between shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">Frecuencia por Día de la Semana</span>
+                        <i class="ri-calendar-line text-purple-500 text-sm"></i>
+                    </div>
+                    <div class="h-56 relative w-full">
+                        <canvas id="chartDias"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<!-- MURO DE COMUNICADOS Y CONVOCATORIAS (CENTRO DE MANDO) -->
+        <div id="comunicados-seccion" class="bg-white dark:bg-[#0c1322] p-6 sm:p-8 rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 gap-2">
+                <div>
+                    <h2 class="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="ri-megaphone-fill text-amber-500 text-lg"></i> Muro de Comunicados y Convocatorias
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Avisos oficiales emitidos directamente por la directiva comunitaria del COCODE</p>
+                </div>
+                <button onclick="abrirModalComunicado()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm shadow-amber-500/20 self-start sm:self-auto">
+                    <i class="ri-add-line text-sm"></i> <span>Redactar Aviso Oficial</span>
+                </button>
+            </div>
+            <div id="listaComunicadosAdmin" class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <p class="text-xs text-slate-400 italic">Cargando comunicados...</p>
+            </div>
+        </div>
+
+        <!-- TABLA DE INCIDENTES (HISTORIAL Y AUDITORÍA) -->
+        <div id="tabla-incidentes-seccion" class="bg-white dark:bg-[#0c1322] rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 space-y-4">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 dark:text-white text-base">Historial y Auditoría de Reportes</h2>
+                        <p class="text-xs text-slate-400">Verifica evidencias, aprueba en el mapa o sanciona reportes falsos</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="exportarReportesExcel()" class="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-bold transition flex items-center gap-1.5">
+                            <i class="ri-file-excel-2-line text-sm"></i> Exportar (.xlsx)
+                        </button>
+                        <button onclick="imprimirActaPDF()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                            <i class="ri-printer-line text-sm"></i> Imprimir Acta
+                        </button>
+                        <div class="relative w-full sm:w-60">
+                            <i class="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="busquedaTabla" onkeyup="filtrarPorTexto()" placeholder="Buscar suceso, emisor..." class="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 dark:text-slate-100">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Píldoras de Filtro Rápido -->
+                <div id="pildorasFiltro" class="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <span class="text-xs text-slate-400 font-semibold mr-1 font-mono">Filtros:</span>
+                    <button onclick="aplicarFiltroRapido('todos')" id="pill-todos" class="pill-btn px-3 py-1 rounded-full text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 transition">Todos</button>
+                    <button onclick="aplicarFiltroRapido('pendiente')" id="pill-pendiente" class="pill-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">Pendientes</button>
+                    <button onclick="aplicarFiltroRapido('critica')" id="pill-critica" class="pill-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">Críticos / Alta</button>
+                    <button onclick="aplicarFiltroRapido('foto')" id="pill-foto" class="pill-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">Con Fotografía</button>
+                    <button onclick="aplicarFiltroRapido('audio')" id="pill-audio" class="pill-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">Con Nota de Voz</button>
+                    <button onclick="aplicarFiltroRapido('atendido')" id="pill-atendido" class="pill-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">Atendidos</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+                    <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 uppercase text-[11px] tracking-wider font-mono">
+                        <tr>
+                            <th class="p-4">Código</th>
+                            <th class="p-4">Emisor</th>
+                            <th class="p-4">Tipo Incidente</th>
+                            <th class="p-4">Prioridad</th>
+                            <th class="p-4">Descripción</th>
+                            <th class="p-4 text-center">Evidencias</th>
+                            <th class="p-4">Fecha/Hora</th>
+                            <th class="p-4">Estado</th>
+                            <th class="p-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-incidentes" class="divide-y divide-slate-100 dark:divide-slate-800/80"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PADRÓN DE VECINOS -->
+        <div id="tabla-vecinos-seccion" class="bg-white dark:bg-[#0c1322] rounded-3xl border border-slate-200/70 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] overflow-hidden">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 dark:text-white text-base">Padrón Comunitario de Vecinos</h2>
+                        <p class="text-xs text-slate-400">Validación de identidades, aprobación de solicitudes y roles</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="text" id="busquedaVecino" onkeyup="filtrarTablaVecinos()" placeholder="Buscar por DPI, teléfono o nombre..." class="pl-4 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-emerald-500 w-64 text-slate-700 dark:text-slate-200">
+                        <button onclick="abrirModalCrearVecino()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+                            <i class="ri-user-add-line"></i> Nuevo Vecino
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <span class="text-xs text-slate-400 font-semibold mr-1 font-mono">Filtrar:</span>
+                    <button onclick="filtrarPadronVecinos('todos')" id="pill-vec-todos" class="pill-vec px-3 py-1 rounded-full text-xs font-bold bg-slate-900 text-white transition">Todos</button>
+                    <button onclick="filtrarPadronVecinos('pendiente')" id="pill-vec-pendiente" class="pill-vec px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 transition">Solo Pendientes (<span id="txtCountPendientes">0</span>)</button>
+                    <button onclick="filtrarPadronVecinos('aprobado')" id="pill-vec-aprobado" class="pill-vec px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">Aprobados</button>
+                    <button onclick="filtrarPadronVecinos('suspendido')" id="pill-vec-suspendido" class="pill-vec px-3 py-1 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-100 hover:bg-red-100 transition">Cuentas Suspendidas</button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+                    <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 uppercase text-[11px] tracking-wider font-mono">
+                        <tr>
+                            <th class="p-4">Vecino</th>
+                            <th class="p-4">DPI</th>
+                            <th class="p-4">Teléfono</th>
+                            <th class="p-4">Correo</th>
+                            <th class="p-4">Sector / Dirección</th>
+                            <th class="p-4">Estado</th>
+                            <th class="p-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-vecinos" class="divide-y divide-slate-100 dark:divide-slate-800/80"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL DE RESOLUCIÓN INSTITUCIONAL -->
+    <div id="modalResolucion" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4 transition-opacity">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800">
+            <div class="p-5 bg-slate-900 text-white flex justify-between items-center">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="ri-check-double-line text-blue-400"></i> Registrar Acción y Resolución
+                </h3>
+                <button onclick="cerrarModalResolucion()" class="text-slate-400 hover:text-white"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            <form id="formResolucion" class="p-6 space-y-4">
+                <input type="hidden" id="res_id_reporte" value="">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Acción Tomada por el COCODE *</label>
+                    <textarea id="res_texto" rows="3" required placeholder="Ej: Se coordinó patrulla con la PNC de San Pedro y se resolvió la situación con los involucrados..." class="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-blue-500 dark:text-slate-100"></textarea>
+                    <p class="text-[10px] text-slate-400 mt-1">Este mensaje quedará registrado en la bitácora oficial y servirá de retroalimentación.</p>
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="cerrarModalResolucion()" class="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold transition shadow-sm">Marcar Atendido</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL LANZAR COMUNICADO -->
+    <div id="modalComunicado" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4 transition-opacity">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 dark:border-slate-800">
+            <div class="p-5 bg-slate-900 text-white flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="ri-megaphone-fill text-amber-500"></i> Emitir Comunicado Oficial
+                </h3>
+                <button onclick="cerrarModalComunicado()" class="text-slate-400 hover:text-white"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            <form id="formComunicado" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Título del Aviso / Convocatoria *</label>
+                    <input type="text" id="com_titulo" required placeholder="Ej. Corte programado de agua / Jornada de faena" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-amber-500 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Categoría del Aviso *</label>
+                    <select id="com_categoria" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-amber-500 dark:text-slate-100">
+                        <option value="Seguridad">Seguridad y Vigilancia</option>
+                        <option value="Agua / Luz">Servicios Básicos (Agua / Luz)</option>
+                        <option value="Faena Comunal">Faena Comunal / Trabajos</option>
+                        <option value="General" selected>Aviso General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Contenido del Comunicado *</label>
+                    <textarea id="com_contenido" rows="4" required placeholder="Detalla horarios, sectores afectados y recomendaciones para la comunidad..." class="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-amber-500 dark:text-slate-100"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="cerrarModalComunicado()" class="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium rounded-2xl hover:bg-slate-50 text-xs">Cancelar</button>
+                    <button type="submit" id="btnPublicarComunicado" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-2xl shadow-sm text-xs transition">Publicar en Portal Vecinal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL FOTO PREVIEW -->
+    <div id="modalFotoPreview" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4" onclick="cerrarFotoModal()">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl overflow-hidden max-w-2xl w-full shadow-2xl border border-slate-800 transform transition-all" onclick="event.stopPropagation()">
+            <div class="px-5 py-4 bg-slate-950 text-white flex justify-between items-center border-b border-slate-800">
+                <div class="flex items-center gap-2">
+                    <i class="ri-image-fill text-blue-500 text-lg"></i>
+                    <span id="previewModalTitle" class="text-xs font-mono font-bold uppercase tracking-wider">Evidencia del Incidente</span>
+                </div>
+                <button onclick="cerrarFotoModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="p-3 max-h-[75vh] overflow-auto flex items-center justify-center bg-slate-950">
+                <img id="imgModalPreview" src="" alt="Evidencia Fotográfica" class="max-w-full max-h-[70vh] rounded-2xl object-contain shadow-inner">
+            </div>
+            <div class="p-3 bg-slate-900 border-t border-slate-800 text-right">
+                <a id="btnDescargarFoto" href="" target="_blank" download class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition">
+                    <i class="ri-download-2-line"></i> Descargar Imagen
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REPRODUCTOR DE NOTA DE VOZ -->
+    <div id="modalAudioPreview" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4" onclick="cerrarAudioModal()">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl overflow-hidden max-w-sm w-full shadow-2xl border border-slate-800 p-6 text-center space-y-4 transform transition-all" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                        <i class="ri-mic-fill text-lg"></i>
+                    </div>
+                    <span id="audioModalTitle" class="text-xs font-mono font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Nota de Voz</span>
+                </div>
+                <button onclick="cerrarAudioModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="ri-close-line text-xl"></i>
+                </button>
+            </div>
+            <div class="py-2">
+                <audio id="audioPlayerElement" controls class="w-full">
+                    Tu navegador no soporta el elemento de audio.
+                </audio>
+            </div>
+            <div class="text-[11px] text-slate-400 italic font-mono">
+                Reproducción de evidencia oficial de audio
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL VECINO (CRUD) -->
+    <div id="modalVecino" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4 transition-opacity">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center p-5 bg-slate-900 text-white">
+                <h3 id="modalVecinoTitulo" class="font-bold text-sm flex items-center gap-2 font-mono">
+                    <i class="ri-user-add-fill text-emerald-400"></i> Registrar y Validar Vecino
+                </h3>
+                <button onclick="cerrarModalVecino()" class="text-slate-400 hover:text-white"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            <form id="formVecino" class="p-6 space-y-3.5">
+                <input type="hidden" id="vec_id_usuario" value="">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Nombres *</label>
+                        <input type="text" id="vec_nombres" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Apellidos *</label>
+                        <input type="text" id="vec_apellidos" required class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 dark:text-slate-100">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">DPI (13 dígitos) *</label>
+                        <input type="text" id="vec_dpi" maxlength="13" required placeholder="13 dígitos" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 font-mono dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Teléfono *</label>
+                        <input type="tel" id="vec_telefono" maxlength="15" required placeholder="8 dígitos" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 font-mono dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Correo Electrónico *</label>
+                    <input type="email" id="vec_correo" required placeholder="vecino@champollap.gt" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 dark:text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Dirección / Sector Champollap *</label>
+                    <input type="text" id="vec_direccion" required placeholder="Sector Central..." class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 dark:text-slate-100">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Estado</label>
+                        <select id="vec_estado" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 dark:text-slate-100">
+                            <option value="Aprobado">Aprobado</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Rechazado">Rechazado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label id="vec_password_label" class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Contraseña</label>
+                        <input type="password" id="vec_password" placeholder="Mínimo 6 caracteres" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-emerald-500 dark:text-slate-100">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="cerrarModalVecino()" class="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium rounded-2xl hover:bg-slate-50 text-xs">Cancelar</button>
+                    <button type="submit" id="btnGuardarVecino" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-2xl shadow-sm text-xs transition">Guardar Vecino</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR REPORTE ADMIN -->
+    <div id="modalReporte" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-50 p-4 transition-opacity">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center p-5 bg-slate-900 text-white">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="ri-add-box-line text-red-500"></i> Reportar Incidente Operativo
+                </h3>
+                <button onclick="cerrarModalReporte()" class="text-slate-400 hover:text-white"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            <form id="formIncidente" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Tipo de Suceso</label>
+                    <select id="id_tipo" class="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xs outline-none focus:border-red-500 dark:text-slate-100" required></select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Descripción</label>
+                    <textarea id="descripcion" rows="3" class="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xs outline-none focus:border-red-500 dark:text-slate-100" placeholder="Detalle lo sucedido..." required></textarea>
+                </div>
+                <div class="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 font-mono">
+                    <i class="ri-map-pin-line text-red-600 mr-1"></i> Coordenadas: 
+                    <span id="coordenadasTexto" class="text-slate-700 dark:text-slate-300 font-bold">14.9625, -91.7764</span>
+                </div>
+                <input type="hidden" id="latitud" value="14.9625">
+                <input type="hidden" id="longitud" value="-91.7764">
+                <input type="hidden" id="origen_ubicacion" value="GPS_Predeterminado">
+                <div class="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <button type="button" onclick="cerrarModalReporte()" class="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium rounded-2xl hover:bg-slate-50 text-xs">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-sm text-xs transition">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden max-w-xs bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-800">
+        <i id="toast-icon" class="ri-checkbox-circle-fill text-xl text-emerald-400"></i>
+        <span id="toast-message" class="text-xs font-semibold">Notificación</span>
+    </div>
+
+    <script>
+        const API_URL = "/api";
+        const DEFAULT_LAT = 14.9625;
+        const DEFAULT_LNG = -91.7764;
+        const AUXILIATURA_COORDS = [14.9625, -91.7764];
+
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+            iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+        });
+
+        // Modo Oscuro
+        function aplicarTemaInicial() {
+            if (localStorage.getItem('champollap_theme') === 'dark' || (!('champollap_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('iconoTheme').className = 'ri-sun-line text-lg text-yellow-400';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('iconoTheme').className = 'ri-moon-line text-lg';
+            }
+        }
+        function toggleModoOscuro() {
+            const esOscuro = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('champollap_theme', esOscuro ? 'dark' : 'light');
+            document.getElementById('iconoTheme').className = esOscuro ? 'ri-sun-line text-lg text-yellow-400' : 'ri-moon-line text-lg';
+            if (chartTiposInstance && chartEstadosInstance) {
+                actualizarGraficasEstadisticas();
+            }
+        }
+        aplicarTemaInicial();
+
+        // 1. Mapa Leaflet (Visualizador) con Esri World Street Map
+        let map = L.map('map', { zoomControl: false }).setView([DEFAULT_LAT, DEFAULT_LNG], 15);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012',
+            maxZoom: 19
+        }).addTo(map);
+        setTimeout(() => map.invalidateSize(), 300);
+
+        let incidentMarkersGroup = L.layerGroup().addTo(map);
+        let heatLayer = null;
+        let heatmapActivo = false;
+        let rutaEmergenciaLine = null;
+
+        let todosLosReportes = [];
+        let todosLosVecinos = [];
+        let filtroActual = 'todos';
+        let filtroVecinosActual = 'todos';
+        let alertaActivaActual = null;
+        let audioContext = null;
+
+        // Instancias de Gráficas Chart.js
+        let chartTiposInstance = null;
+        let chartEstadosInstance = null;
+        let chartHorariosInstance = null;
+        let chartDiasInstance = null;
+
+        function showToast(mensaje, esError = false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = mensaje;
+            document.getElementById('toast-icon').className = esError ? "ri-error-warning-fill text-xl text-red-400" : "ri-checkbox-circle-fill text-xl text-emerald-400";
+            toast.classList.remove('hidden');
+            setTimeout(() => { toast.classList.add('hidden'); }, 3500);
+        }
+
+        let tempFocusMarker = null;
+
+        async function enfocarReporteEnMapa(lat, lng, codigo) {
+            if (isNaN(lat) || isNaN(lng)) {
+                showToast("Este reporte no cuenta con coordenadas válidas", true);
+                return;
+            }
+            
+            const reporte = todosLosReportes.find(r => r.codigo_seguimiento === codigo);
+            const tipoCaso = reporte ? reporte.tipo : "Incidente Comunitario";
+            const descCaso = reporte ? reporte.descripcion : "Sin descripción detallada";
+            const origenUbicacion = reporte ? (reporte.origen_ubicacion || 'Ubicación Base') : '';
+
+            map.setView([lat, lng], 18);
+            document.getElementById('mapa-seccion').scrollIntoView({ behavior: 'smooth' });
+
+            if (tempFocusMarker) {
+                map.removeLayer(tempFocusMarker);
+            }
+
+            const popupHTML = `
+                <div class="text-slate-900 p-2 font-sans max-w-xs space-y-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full uppercase font-mono">${codigo}</span>
+                        <span class="text-[9px] font-mono text-slate-500">${origenUbicacion}</span>
+                    </div>
+                    <h4 class="font-extrabold text-xs text-slate-900 mt-1">${tipoCaso}</h4>
+                    <p class="text-xs text-slate-600 leading-relaxed">${descCaso}</p>
+                    <div class="text-[11px] text-slate-500 italic mt-1" id="dir-texto-${codigo}">
+                        <i class="ri-loader-4-line animate-spin"></i> Buscando dirección exacta...
+                    </div>
+                    <div class="pt-1.5 border-t border-slate-100 text-[10px] font-mono font-bold text-blue-600">
+                        Coordenadas: ${lat.toFixed(5)}, ${lng.toFixed(5)}
+                    </div>
+                </div>
+            `;
+
+            tempFocusMarker = L.marker([lat, lng]).addTo(map)
+                .bindPopup(popupHTML)
+                .openPopup();
+                
+            showToast(`Mostrando ubicación exacta del reporte ${codigo}`);
+
+            try {
+                const respuesta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                const datos = await respuesta.json();
+                const direccionExacta = datos.display_name || "Aldea Champollap, San Pedro Sacatepéquez, San Marcos";
+                
+                const elementoDireccion = document.getElementById(`dir-texto-${codigo}`);
+                if (elementoDireccion) {
+                    elementoDireccion.innerHTML = `<i class="ri-map-pin-2-fill text-red-500 mr-1"></i> <b>Dirección:</b> ${direccionExacta}`;
+                }
+            } catch (error) {
+                const elementoDireccion = document.getElementById(`dir-texto-${codigo}`);
+                if (elementoDireccion) {
+                    elementoDireccion.innerHTML = `<i class="ri-map-pin-2-fill text-red-500 mr-1"></i> <b>Dirección:</b> Sector Comunitario - Aldea Champollap`;
+                }
+            }
+        }
+
+        function reproducirAlarmaSOS() {
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(440, audioContext.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioContext.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + 0.35);
+            } catch (e) {}
+        }
+
+        // --- GEOFENCING: POLÍGONOS DE SECTORES ---
+        const sectoresChampollap = [
+            { nombre: "Sector Central", color: "#dc2626", coords: [[14.9650, -91.7790], [14.9650, -91.7740], [14.9605, -91.7740], [14.9605, -91.7790]] },
+            { nombre: "Sector Las Manzanas", color: "#16a34a", coords: [[14.9690, -91.7790], [14.9690, -91.7720], [14.9650, -91.7720], [14.9650, -91.7790]] },
+            { nombre: "Cantón El Tesoro", color: "#2563eb", coords: [[14.9605, -91.7820], [14.9605, -91.7730], [14.9560, -91.7730], [14.9560, -91.7820]] }
+        ];
+
+        let sectoresLayers = L.layerGroup();
+        let mostrandoSectores = false;
+
+        function toggleSectoresPoligonos() {
+            mostrandoSectores = !mostrandoSectores;
+            const btn = document.getElementById('btnPoligonos');
+            const txt = document.getElementById('txtPoligonos');
+            if (mostrandoSectores) {
+                sectoresLayers.clearLayers();
+                sectoresChampollap.forEach(sec => {
+                    const poly = L.polygon(sec.coords, { color: sec.color, weight: 2, fillOpacity: 0.15 })
+                        .bindTooltip(`<b>${sec.nombre}</b><br><span class="text-xs">Clic para filtrar</span>`);
+                    poly.on('click', () => {
+                        const inputTabla = document.getElementById('busquedaTabla');
+                        if (inputTabla) {
+                            inputTabla.value = sec.nombre;
+                            filtrarPorTexto();
+                            showToast(`Filtrando cuadrante: ${sec.nombre}`);
+                        }
+                    });
+                    sectoresLayers.addLayer(poly);
+                });
+                map.addLayer(sectoresLayers);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-blue-600 text-white transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Ocultar Sectores";
+            } else {
+                map.removeLayer(sectoresLayers);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Ver Sectores";
+            }
+        }
+
+        // --- PUNTOS SEGUROS (POI) ---
+        let infraLayerAdmin = L.layerGroup();
+        let mostrandoInfraAdmin = false;
+
+        async function cargarPuntosInteresAdmin() {
+            try {
+                const res = await fetch(`${API_URL}/puntos-interes`);
+                const d = await res.json();
+                if (d.exito && d.data) {
+                    infraLayerAdmin.clearLayers();
+                    d.data.forEach(p => {
+                        let color = p.categoria === 'Salud' ? 'bg-blue-600' : (p.categoria === 'Auxiliatura' ? 'bg-red-600' : 'bg-emerald-600');
+                        let icon = p.categoria === 'Salud' ? 'ri-first-aid-kit-fill' : (p.categoria === 'Auxiliatura' ? 'ri-government-fill' : 'ri-building-line');
+
+                        const customMarker = L.divIcon({
+                            html: `<div class="w-7 h-7 rounded-full ${color} text-white flex items-center justify-center shadow-md border-2 border-white"><i class="${icon} text-xs"></i></div>`,
+                            className: 'custom-poi-marker',
+                            iconSize: [28, 28]
+                        });
+
+                        L.marker([p.latitud, p.longitud], { icon: customMarker })
+                            .bindPopup(`<div class="text-slate-900 p-1 font-sans"><b>${p.nombre} (${p.categoria})</b><br>${p.descripcion}<br>Contacto: ${p.contacto}</div>`)
+                            .addTo(infraLayerAdmin);
+                    });
+                }
+            } catch (e) {}
+        }
+        cargarPuntosInteresAdmin();
+
+        function toggleCapaInfraAdmin() {
+            mostrandoInfraAdmin = !mostrandoInfraAdmin;
+            const btn = document.getElementById('btnInfraAdmin');
+            const txt = document.getElementById('txtInfraAdmin');
+            if (mostrandoInfraAdmin) {
+                map.addLayer(infraLayerAdmin);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-emerald-600 text-white transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Ocultar Puntos";
+            } else {
+                map.removeLayer(infraLayerAdmin);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Puntos Seguros";
+            }
+        }
+
+function formatearHoraGT(fechaStr) {
+            if (!fechaStr) return '';
+            try {
+                const partes = fechaStr.replace('T', ' ').split(' ');
+                if (partes.length >= 2) {
+                    const tiempoPartes = partes[1].split(':');
+                    if (tiempoPartes.length >= 2) {
+                        let h = parseInt(tiempoPartes[0], 10);
+                        const m = tiempoPartes[1];
+                        const s = tiempoPartes[2] ? tiempoPartes[2].substring(0, 2) : '00';
+                        const ampm = h >= 12 ? 'p. m.' : 'a. m.';
+                        h = h % 12 || 12;
+                        return `${h}:${m}:${s} ${ampm}`;
+                    }
+                }
+            } catch (e) {}
+            return fechaStr;
+        }
+
+        function formatearFechaHoraGT(fechaStr) {
+            if (!fechaStr) return '';
+            try {
+                const partes = fechaStr.replace('T', ' ').split(' ');
+                if (partes.length >= 2) {
+                    const fechaPartes = partes[0].split('-');
+                    if (fechaPartes.length === 3) {
+                        const anio = fechaPartes[0];
+                        const mes = fechaPartes[1];
+                        const dia = fechaPartes[2];
+                        return `${dia}/${mes}/${anio}, ${formatearHoraGT(fechaStr)}`;
+                    }
+                }
+            } catch (e) {}
+            return fechaStr;
+        }
+
+        // --- SOLICITAR PERMISOS DE NOTIFICACIÓN NATIVA PARA SEGUNDO PLANO ---
+        function solicitarPermisoNotificaciones() {
+            if ("Notification" in window) {
+                if (Notification.permission === "default") {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            showToast("Notificaciones push en segundo plano activadas.");
+                        }
+                    });
+                }
+            }
+        }
+
+        let ultimoConteoReportes = null;
+
+        async function verificarAlertasSOS() {
+            try {
+                // 1. Verificar Alertas S.O.S Activas
+                const res = await fetch(`${API_URL}/admin/alertas-activas`);
+                const data = await res.json();
+                const banner = document.getElementById('bannerAlertaSOS');
+
+                if (data.exito && data.alertas && data.alertas.length > 0) {
+                    const topAlerta = data.alertas[0];
+                    alertaActivaActual = topAlerta;
+
+                    document.getElementById('sos-vecino').innerText = topAlerta.vecino;
+                    document.getElementById('sos-tel').innerText = topAlerta.telefono;
+                    document.getElementById('sos-tel').href = `tel:${topAlerta.telefono}`;
+                    document.getElementById('sos-dir').innerText = topAlerta.direccion_champollap;
+                    document.getElementById('sos-hora').innerText = formatearHoraGT(topAlerta.fecha_hora);
+                    
+                    const msgWA = encodeURIComponent(`Hola ${topAlerta.vecino}, el COCODE ha recibido tu ALERTA S.O.S. Estamos coordinando la respuesta de auxilio hacia ${topAlerta.direccion_champollap}.`);
+                    document.getElementById('btnSosWhatsApp').href = `https://wa.me/502${topAlerta.telefono}?text=${msgWA}`;
+
+                    banner.classList.remove('hidden');
+                    reproducirAlarmaSOS();
+
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        if (!window.ultimaAlertaNotificada || window.ultimaAlertaNotificada !== topAlerta.id_alerta) {
+                            window.ultimaAlertaNotificada = topAlerta.id_alerta;
+                            
+                            navigator.serviceWorker.ready.then(registration => {
+                                registration.showNotification("🚨 ¡EMERGENCIA S.O.S URGENTE!", {
+                                    body: `${topAlerta.vecino} requiere auxilio inmediato en ${topAlerta.direccion_champollap}.`,
+                                    icon: "/static/recursos/f3.jpg",
+                                    badge: "/static/recursos/f3.jpg",
+                                    vibrate: [300, 100, 300, 100, 300],
+                                    tag: "emergencia-cocode",
+                                    requireInteraction: true
+                                });
+                            });
+                        }
+                    }
+                } else {
+                    alertaActivaActual = null;
+                    banner.classList.add('hidden');
+                    if (rutaEmergenciaLine) {
+                        map.removeLayer(rutaEmergenciaLine);
+                        rutaEmergenciaLine = null;
+                    }
+                }
+
+                // 2. NUEVO: Verificar si hay NUEVOS REPORTES generales ingresados para notificar en segundo plano
+                const resReportes = await fetch(`${API_URL}/reportes`);
+                const dataReportes = await resReportes.json();
+                if (dataReportes.exito && dataReportes.data) {
+                    const totalActual = dataReportes.data.length;
+                    
+                    if (ultimoConteoReportes !== null && totalActual > ultimoConteoReportes) {
+                        const nuevoReporte = dataReportes.data[0];
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            navigator.serviceWorker.ready.then(registration => {
+                                registration.showNotification("📋 Nuevo Reporte Comunitario", {
+                                    body: `Se ha registrado un caso de ${nuevoReporte.tipo} (${nuevoReporte.codigo_seguimiento}).`,
+                                    icon: "/static/recursos/f3.jpg",
+                                    badge: "/static/recursos/f3.jpg",
+                                    vibrate: [200, 100, 200],
+                                    tag: "nuevo-reporte-cocode"
+                                });
+                            });
+                        }
+                        cargarDashboardData();
+                    }
+                    ultimoConteoReportes = totalActual;
+                }
+
+            } catch (err) {}
+        }
+
+        function enfocarAlertaEnMapa() {
+            if (!alertaActivaActual) return;
+            const dest = [alertaActivaActual.latitud, alertaActivaActual.longitud];
+            map.setView(dest, 17);
+
+            if (rutaEmergenciaLine) map.removeLayer(rutaEmergenciaLine);
+            rutaEmergenciaLine = L.polyline([AUXILIATURA_COORDS, dest], {
+                color: '#dc2626',
+                weight: 4,
+                dashArray: '8, 8',
+                opacity: 0.9
+            }).addTo(map);
+
+            L.popup()
+                .setLatLng(dest)
+                .setContent(`
+                    <div class="text-center p-2 font-sans text-slate-900">
+                        <span class="text-[10px] font-black bg-red-600 text-white px-2.5 py-0.5 rounded-full uppercase font-mono">🚨 SOS ACTIVO</span>
+                        <h4 class="font-bold text-sm text-slate-900 mt-2">${alertaActivaActual.vecino}</h4>
+                        <p class="text-xs text-slate-600">${alertaActivaActual.direccion_champollap}</p>
+                        <p class="text-xs font-mono font-bold text-red-600 mt-1">Tel: ${alertaActivaActual.telefono}</p>
+                    </div>
+                `)
+                .openOn(map);
+        }
+
+        async function desactivarAlertaSOS() {
+            if (!alertaActivaActual) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/alertas/${alertaActivaActual.id_alerta}/atender`, { method: 'PUT' });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    showToast("Alerta S.O.S marcada como atendida");
+                    verificarAlertasSOS();
+                }
+            } catch (e) {
+                showToast("Error al cerrar alerta", true);
+            }
+        }
+
+        function toggleMenuNotificaciones() {
+            document.getElementById('dropdownNotificaciones').classList.toggle('hidden');
+        }
+
+        // --- COMUNICADOS ---
+        function abrirModalComunicado() { document.getElementById('modalComunicado').classList.remove('hidden'); }
+        function cerrarModalComunicado() { 
+            document.getElementById('formComunicado').reset();
+            document.getElementById('modalComunicado').classList.add('hidden'); 
+        }
+
+        document.getElementById('formComunicado').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnPublicarComunicado');
+            btn.disabled = true;
+            btn.innerText = "Publicando...";
+
+            const payload = {
+                titulo: document.getElementById('com_titulo').value.trim(),
+                categoria: document.getElementById('com_categoria').value,
+                contenido: document.getElementById('com_contenido').value.trim()
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/admin/comunicados`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    cerrarModalComunicado();
+                    showToast("Comunicado publicado en el portal vecinal");
+                    cargarComunicadosAdmin();
+                } else {
+                    showToast(d.mensaje || "Error al publicar aviso", true);
+                }
+            } catch (err) {
+                showToast("Error de conexión", true);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Publicar en Portal Vecinal";
+            }
+        });
+
+        async function cargarComunicadosAdmin() {
+            try {
+                const res = await fetch(`${API_URL}/comunicados`);
+                const d = await res.json();
+                const cont = document.getElementById('listaComunicadosAdmin');
+                if (d.exito && d.data) {
+                    if (d.data.length === 0) {
+                        cont.innerHTML = `<div class="col-span-3 text-center py-8 text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">No hay avisos emitidos en la comunidad.</div>`;
+                        return;
+                    }
+                    cont.innerHTML = '';
+                    d.data.forEach(c => {
+                        cont.innerHTML += `
+                            <div class="p-5 rounded-3xl bg-white dark:bg-[#0c1322] border-2 border-amber-100 dark:border-amber-950/60 hover:border-amber-400 transition relative overflow-hidden group shadow-sm flex flex-col justify-between space-y-3">
+                                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 dark:bg-amber-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                                
+                                <div class="space-y-2 relative z-10">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase font-mono bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                                            ${c.categoria}
+                                        </span>
+                                        <i class="ri-pushpin-2-fill text-amber-500 text-sm"></i>
+                                    </div>
+                                    <h4 class="font-extrabold text-sm text-slate-900 dark:text-white line-clamp-1">${c.titulo}</h4>
+                                    <p class="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed font-medium">${c.contenido}</p>
+                                </div>
+
+                                <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono relative z-10">
+                                    <span class="flex items-center gap-1">
+                                        <i class="ri-time-line"></i> ${formatearFechaHoraGT(c.fecha_publicacion)}
+                                    </span>
+                                    <span class="text-amber-600 dark:text-amber-400 font-bold">COCODE</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function toggleHeatmap() {
+            heatmapActivo = !heatmapActivo;
+            const btn = document.getElementById('btnHeatmap');
+            const txt = document.getElementById('txtHeatmap');
+
+            if (heatmapActivo) {
+                const puntosCalor = todosLosReportes
+                    .filter(r => !isNaN(parseFloat(r.latitud)) && !isNaN(parseFloat(r.longitud)))
+                    .map(r => {
+                        const prio = (r.nivel_prioridad || '').toLowerCase();
+                        const peso = (prio === 'critica' || prio === 'crítica') ? 1.0 : (prio === 'alta') ? 0.7 : 0.4;
+                        return [parseFloat(r.latitud), parseFloat(r.longitud), peso];
+                    });
+
+                if (heatLayer) map.removeLayer(heatLayer);
+                heatLayer = L.heatLayer(puntosCalor, { radius: 28, blur: 18, maxZoom: 16 }).addTo(map);
+                
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-orange-600 text-white transition flex items-center gap-1.5 shadow-md";
+                txt.innerText = "Desactivar Calor";
+                showToast("Mapa de calor activado");
+            } else {
+                if (heatLayer) map.removeLayer(heatLayer);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Zonas de Calor";
+            }
+        }
+
+        // --- GRÁFICAS CHART.JS (GENERALES Y PATRONES TEMPORALES) ---
+        function actualizarGraficasEstadisticas() {
+            const conteoTipos = {};
+            const conteoEstados = { 'Pendiente': 0, 'Aprobado': 0, 'Atendido': 0, 'Desestimado': 0 };
+
+            const conteoHorarios = { 'Madrugada': 0, 'Mañana': 0, 'Tarde': 0, 'Noche': 0 };
+            const conteoDias = { 'Lun': 0, 'Mar': 0, 'Mié': 0, 'Jue': 0, 'Vie': 0, 'Sáb': 0, 'Dom': 0 };
+            const mapaDias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+            todosLosReportes.forEach(r => {
+                const tipo = r.tipo || 'Otro';
+                conteoTipos[tipo] = (conteoTipos[tipo] || 0) + 1;
+
+                const est = r.estado || 'Pendiente';
+                if (conteoEstados.hasOwnProperty(est)) conteoEstados[est]++;
+
+                if (r.fecha_hora_incidente) {
+                    const partes = r.fecha_hora_incidente.replace('T', ' ').split(' ');
+                    if (partes.length >= 2) {
+                        const [anio, mes, dia] = partes[0].split('-').map(Number);
+                        const [hora, min] = partes[1].split(':').map(Number);
+                        const fechaObj = new Date(anio, mes - 1, dia, hora, min);
+
+                        if (hora >= 0 && hora < 6) conteoHorarios['Madrugada']++;
+                        else if (hora >= 6 && hora < 12) conteoHorarios['Mañana']++;
+                        else if (hora >= 12 && hora < 18) conteoHorarios['Tarde']++;
+                        else conteoHorarios['Noche']++;
+
+                        const diaClave = mapaDias[fechaObj.getDay()];
+                        if (conteoDias.hasOwnProperty(diaClave)) conteoDias[diaClave]++;
+                    }
+                }
+            });
+
+            const esModoOscuro = document.documentElement.classList.contains('dark');
+            const colorTexto = esModoOscuro ? '#cbd5e1' : '#64748b';
+            const colorGrid = esModoOscuro ? '#1e293b' : '#f1f5f9';
+
+            const ctxTipos = document.getElementById('chartTipos').getContext('2d');
+            if (chartTiposInstance) chartTiposInstance.destroy();
+            chartTiposInstance = new Chart(ctxTipos, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(conteoTipos),
+                    datasets: [{
+                        data: Object.values(conteoTipos),
+                        backgroundColor: ['#2563eb', '#10b981', '#f59e0b', '#fb7185', '#6366f1'],
+                        borderWidth: 2,
+                        borderColor: esModoOscuro ? '#0c1322' : '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } } }
+                }
+            });
+
+            const ctxEstados = document.getElementById('chartEstados').getContext('2d');
+            if (chartEstadosInstance) chartEstadosInstance.destroy();
+            chartEstadosInstance = new Chart(ctxEstados, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(conteoEstados),
+                    datasets: [{
+                        data: Object.values(conteoEstados),
+                        backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ef4444'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: colorGrid }, ticks: { precision: 0, font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } },
+                        x: { grid: { display: false }, ticks: { font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } }
+                    }
+                }
+            });
+
+            const canvasHorarios = document.getElementById('chartHorarios');
+            if (canvasHorarios) {
+                const ctxHorarios = canvasHorarios.getContext('2d');
+                if (chartHorariosInstance) chartHorariosInstance.destroy();
+                chartHorariosInstance = new Chart(ctxHorarios, {
+                    type: 'line',
+                    data: {
+                        labels: ['Madrugada (00-06h)', 'Mañana (06-12h)', 'Tarde (12-18h)', 'Noche (18-24h)'],
+                        datasets: [{
+                            label: 'Incidentes',
+                            data: Object.values(conteoHorarios),
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                            borderWidth: 2.5,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#2563eb',
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: colorGrid }, ticks: { precision: 0, font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } },
+                            x: { grid: { display: false }, ticks: { font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } }
+                        }
+                    }
+                });
+            }
+
+            const canvasDias = document.getElementById('chartDias');
+            if (canvasDias) {
+                const ctxDias = canvasDias.getContext('2d');
+                if (chartDiasInstance) chartDiasInstance.destroy();
+                chartDiasInstance = new Chart(ctxDias, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                        datasets: [{
+                            label: 'Frecuencia',
+                            data: Object.values(conteoDias),
+                            backgroundColor: '#8b5cf6',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: colorGrid }, ticks: { precision: 0, font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } },
+                            x: { grid: { display: false }, ticks: { font: { size: 10, family: 'Plus Jakarta Sans' }, color: colorTexto } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function aplicarFiltroRapido(tipo) {
+            filtroActual = tipo;
+            document.querySelectorAll('.pill-btn').forEach(btn => {
+                btn.className = "pill-btn px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition";
+            });
+            const activo = document.getElementById(`pill-${tipo}`);
+            if (activo) activo.className = "pill-btn px-3 py-1 rounded-full text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 transition";
+
+            renderizarTablaReportes();
+        }
+
+        function filtrarPorTexto() { renderizarTablaReportes(); }
+
+        function renderizarTablaReportes() {
+            const texto = document.getElementById('busquedaTabla').value.toLowerCase().trim();
+            const tbody = document.getElementById('tabla-incidentes');
+            tbody.innerHTML = '';
+            incidentMarkersGroup.clearLayers();
+
+            const filtrados = todosLosReportes.filter(r => {
+                const est = (r.estado || '').toLowerCase();
+                const prio = (r.nivel_prioridad || '').toLowerCase();
+                const cumpleTexto = (
+                    (r.codigo_seguimiento || '').toLowerCase().includes(texto) ||
+                    (r.usuario_nombre || '').toLowerCase().includes(texto) ||
+                    (r.tipo || '').toLowerCase().includes(texto) ||
+                    (r.descripcion || '').toLowerCase().includes(texto)
+                );
+
+                if (!cumpleTexto) return false;
+
+                if (filtroActual === 'todos') return true;
+                if (filtroActual === 'pendiente') return est === 'pendiente';
+                if (filtroActual === 'critica') return prio === 'critica' || prio === 'crítica' || prio === 'alta';
+                if (filtroActual === 'foto') return r.foto !== null && r.foto !== '';
+                if (filtroActual === 'audio') return r.audio !== null && r.audio !== '';
+                if (filtroActual === 'atendido') return est === 'atendido';
+                return true;
+            });
+
+            filtrados.forEach(incidente => {
+                const lat = parseFloat(incidente.latitud);
+                const lng = parseFloat(incidente.longitud);
+
+                let fotoPopup = incidente.foto ? `
+                    <div class="mt-2 text-center">
+                        <img src="/static/uploads/reportes/${incidente.foto}" class="w-full h-24 object-cover rounded-xl border border-slate-200">
+                        <button onclick="verFotoModal('/static/uploads/reportes/${incidente.foto}', '${incidente.codigo_seguimiento}')" class="mt-1 text-[11px] text-red-600 font-bold hover:underline">
+                            <i class="ri-zoom-in-line"></i> Ampliar Foto
+                        </button>
+                    </div>
+                ` : '';
+
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    L.marker([lat, lng])
+                        .addTo(incidentMarkersGroup)
+                        .bindPopup(`<div class="text-slate-900 p-1 font-sans"><b>${incidente.codigo_seguimiento} - ${incidente.tipo}</b><br>${incidente.descripcion}<br><span class="text-xs font-bold text-slate-600">Estado: ${incidente.estado}</span>${fotoPopup}</div>`);
+                }
+
+                const estadoLower = (incidente.estado || '').toLowerCase();
+                
+                let botonFoto = incidente.foto ? `
+                    <button onclick="verFotoModal('/static/uploads/reportes/${incidente.foto}', '${incidente.codigo_seguimiento}')" class="relative group rounded-xl overflow-hidden border border-slate-200 shadow-sm" title="Ver foto">
+                        <img src="/static/uploads/reportes/${incidente.foto}" class="w-8 h-8 object-cover group-hover:scale-110 transition">
+                    </button>
+                ` : '';
+
+                let botonAudio = incidente.audio ? `
+                    <button onclick="reproducirAudioDirecto('/static/uploads/audios/${incidente.audio}', '${incidente.codigo_seguimiento}')" class="p-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-xl transition shadow-sm" title="Escuchar Nota de Voz">
+                        <i class="ri-volume-up-line text-sm"></i>
+                    </button>
+                ` : '';
+
+                let bloqueEvidencias = (botonFoto || botonAudio) ? `
+                    <div class="flex items-center justify-center gap-1.5">
+                        ${botonFoto}
+                        ${botonAudio}
+                    </div>
+                ` : `<span class="text-[10px] text-slate-400 italic font-mono">Sin datos</span>`;
+
+                const esGPSReal = (incidente.origen_ubicacion || '').includes('GPS_En_Tiempo_Real');
+                let badgeUbicacion = esGPSReal 
+                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 font-mono mt-1"><i class="ri-crosshair-2-line"></i> GPS en Tiempo Real</span>`
+                    : `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono mt-1"><i class="ri-map-pin-line"></i> Ubicación Base</span>`;
+
+                let linkMapaInterno = (!isNaN(lat) && !isNaN(lng))
+                    ? `<button onclick="enfocarReporteEnMapa(${lat}, ${lng}, '${incidente.codigo_seguimiento}')" class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 font-mono hover:bg-blue-100 transition shadow-sm cursor-pointer">
+                         <i class="ri-map-pin-user-line"></i> Ver en Mapa Central
+                       </button>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-4 font-black text-slate-900 dark:text-white font-mono text-xs">${incidente.codigo_seguimiento}</td>
+                    <td class="p-4 font-semibold text-slate-700 dark:text-slate-200 text-xs">${incidente.usuario_nombre}</td>
+                    <td class="p-4 font-semibold text-slate-800 dark:text-slate-200 text-xs">${incidente.tipo}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-0.5 text-[9px] rounded-full font-bold uppercase border ${
+                            ['critica', 'crítica'].includes((incidente.nivel_prioridad || '').toLowerCase()) ? 'bg-red-50 text-red-700 border-red-200' : 
+                            ['alta'].includes((incidente.nivel_prioridad || '').toLowerCase()) ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }">
+                            ${incidente.nivel_prioridad}
+                        </span>
+                    </td>
+                    <td class="p-4 text-slate-600 dark:text-slate-300 max-w-xs text-xs">
+                        <p class="line-clamp-2" title="${incidente.descripcion}">${incidente.descripcion}</p>
+                        <div class="flex items-center flex-wrap gap-1.5 mt-1">
+                            ${badgeUbicacion}
+                            ${linkMapaInterno}
+                        </div>
+                    </td>
+                    <td class="p-4 text-center">${bloqueEvidencias}</td>
+                    <td class="p-4 text-xs text-slate-500 font-medium font-mono">${formatearFechaHoraGT(incidente.fecha_hora_incidente)}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 text-xs rounded-full font-bold border ${
+                            estadoLower === 'aprobado' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            estadoLower === 'pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            estadoLower === 'atendido' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }">
+                            ${incidente.estado}
+                        </span>
+                    </td>
+                    <td class="p-4 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            ${estadoLower === 'pendiente' ? `
+                                <button onclick="cambiarEstadoIncidente(${incidente.id_reporte}, 2)" title="Validar y Publicar en Mapa Comunitario" class="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-xl transition border border-emerald-200">
+                                    <i class="ri-checkbox-circle-line text-base"></i>
+                                </button>
+                            ` : ''}
+                            ${estadoLower !== 'atendido' ? `
+                                <button onclick="abrirModalResolucion(${incidente.id_reporte})" title="Marcar como Atendido y Registrar Acción" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition border border-emerald-200">
+                                    <i class="ri-check-double-line text-base"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="confirmarReporteFalso(${incidente.id_reporte}, '${incidente.codigo_seguimiento}')" title="Marcar como Falso Reporte y Suspender Cuenta (RN-03)" class="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 rounded-xl transition border border-amber-200">
+                                <i class="ri-error-warning-line text-base"></i>
+                            </button>
+                            <button onclick="confirmarEliminarReporte(${incidente.id_reporte}, '${incidente.codigo_seguimiento}')" title="Eliminar Reporte de la Bitácora" class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-xl transition border border-red-200">
+                                <i class="ri-delete-bin-line text-base"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- REPRODUCTOR VISUAL DE NOTAS DE VOZ ---
+        function reproducirAudioDirecto(url, codigo) {
+            const modal = document.getElementById('modalAudioPreview');
+            const player = document.getElementById('audioPlayerElement');
+            const titulo = document.getElementById('audioModalTitle');
+            
+            titulo.innerText = `Nota de Voz - ${codigo || 'Evidencia'}`;
+            player.src = url;
+            modal.classList.remove('hidden');
+            player.play().catch(e => console.log("Reproducción automática bloqueada por políticas del navegador:", e));
+        }
+
+        function cerrarAudioModal() {
+            const modal = document.getElementById('modalAudioPreview');
+            const player = document.getElementById('audioPlayerElement');
+            player.pause();
+            player.currentTime = 0;
+            modal.classList.add('hidden');
+        }
+
+        function abrirModalResolucion(id_reporte) {
+            document.getElementById('res_id_reporte').value = id_reporte;
+            document.getElementById('res_texto').value = '';
+            document.getElementById('modalResolucion').classList.remove('hidden');
+        }
+        function cerrarModalResolucion() {
+            document.getElementById('modalResolucion').classList.add('hidden');
+        }
+
+        document.getElementById('formResolucion').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id_reporte = document.getElementById('res_id_reporte').value;
+            const resolucion = document.getElementById('res_texto').value.trim();
+
+            try {
+                const res = await fetch(`${API_URL}/admin/reportes/${id_reporte}/estado`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_estado: 3, resolucion: resolucion })
+                });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    cerrarModalResolucion();
+                    showToast("Incidente atendido y resolución registrada");
+                    cargarDashboardData();
+                } else {
+                    showToast(d.mensaje || "Error al actualizar estado", true);
+                }
+            } catch (err) {
+                showToast("Error de conexión", true);
+            }
+        });
+
+        // --- MODAL TÁCTICO PROFESIONAL PARA ALERTAS Y ELIMINACIÓN ---
+        function abrirCyberModal(titulo, mensaje, onAceptar) {
+            document.getElementById('cyberModalTitle').innerText = titulo;
+            document.getElementById('cyberModalMsg').innerText = mensaje;
+            const btnAceptar = document.getElementById('cyberModalBtnAceptar');
+            
+            const nuevoBtn = btnAceptar.cloneNode(true);
+            btnAceptar.parentNode.replaceChild(nuevoBtn, btnAceptar);
+            
+            document.getElementById('cyberModalBtnAceptar').addEventListener('click', () => {
+                cerrarCyberModal();
+                if (onAceptar) onAceptar();
+            });
+
+            document.getElementById('cyberModalCustom').classList.add('show');
+        }
+
+        function cerrarCyberModal() {
+            document.getElementById('cyberModalCustom').classList.remove('show');
+        }
+
+        // Exportar a Excel
+        function exportarReportesExcel() {
+            if (!todosLosReportes || todosLosReportes.length === 0) {
+                return showToast("No hay registros disponibles", true);
+            }
+
+            const ahora = new Date();
+            const fechaEmision = ahora.toLocaleDateString('es-GT', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Guatemala' });
+            const horaEmision = ahora.toLocaleTimeString('es-GT', { timeZone: 'America/Guatemala' });
+
+            const datosMatriz = [
+                ["ALCALDÍA AUXILIAR COMUNITARIA & CONSEJO COMUNITARIO DE DESARROLLO (COCODE)"],
+                ["ALDEA CHAMPOLLAP, SAN PEDRO SACATEPÉQUEZ, SAN MARCOS"],
+                ["SISTEMA DE SEGURIDAD Y GESTIÓN DE INCIDENTES - CHAMPOLLAP SOS"],
+                ["INFORME OFICIAL DE BITÁCORA Y SUCESOS REGISTRADOS"],
+                [""],
+                ["Fecha de Emisión:", fechaEmision, "Hora:", horaEmision],
+                ["Total de Casos:", todosLosReportes.length, "Generado por:", "Administración COCODE"],
+                [""],
+                ["No.", "CÓDIGO", "VECINO EMISOR", "TIPO DE INCIDENTE", "NIVEL PRIORIDAD", "DESCRIPCIÓN DEL SUCESO", "FECHA Y HORA", "ESTADO", "RESOLUCIÓN COCODE", "FOTO", "AUDIO VOZ", "LATITUD", "LONGITUD"]
+            ];
+
+            todosLosReportes.forEach((r, index) => {
+                datosMatriz.push([
+                    index + 1,
+                    r.codigo_seguimiento || "S/C",
+                    r.usuario_nombre || "Anónimo",
+                    r.tipo || "General",
+                    r.nivel_prioridad || "Media",
+                    r.descripcion || "",
+                    formatearFechaHoraGT(r.fecha_hora_incidente),
+                    r.estado || "Pendiente",
+                    r.resolucion_admin || "Sin resolución",
+                    r.foto ? "Adjunta" : "Sin Foto",
+                    r.audio ? "Adjunto" : "Sin Audio",
+                    parseFloat(r.latitud) || 0,
+                    parseFloat(r.longitud) || 0
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(datosMatriz);
+            ws['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 28 }, { wch: 26 }, { wch: 16 }, { wch: 45 }, { wch: 24 }, { wch: 15 }, { wch: 35 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Informe Oficial");
+            XLSX.writeFile(wb, `Champollap_SOS_Informe_${ahora.toISOString().slice(0, 10)}.xlsx`);
+            showToast("Informe Excel generado");
+        }
+
+        // Imprimir Acta Formal
+        function imprimirActaPDF() {
+            if (!todosLosReportes || todosLosReportes.length === 0) {
+                return showToast("No hay datos para generar el acta", true);
+            }
+
+            const ahora = new Date();
+            const fechaTexto = ahora.toLocaleDateString('es-GT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Guatemala' });
+            const horaTexto = ahora.toLocaleTimeString('es-GT', { timeZone: 'America/Guatemala' });
+
+            let filasHtml = '';
+            todosLosReportes.forEach((r) => {
+                filasHtml += `
+                    <tr style="border-bottom: 1px solid #cbd5e1; font-size: 11px;">
+                        <td style="padding: 6px 8px; font-weight: bold; font-family: monospace;">${r.codigo_seguimiento}</td>
+                        <td style="padding: 6px 8px;">${r.usuario_nombre}</td>
+                        <td style="padding: 6px 8px;">${r.tipo}</td>
+                        <td style="padding: 6px 8px;">${r.nivel_prioridad}</td>
+                        <td style="padding: 6px 8px;">${r.descripcion}</td>
+                        <td style="padding: 6px 8px;">${formatearFechaHoraGT(r.fecha_hora_incidente)}</td>
+                        <td style="padding: 6px 8px; font-weight: bold;">${r.estado}</td>
+                    </tr>
+                `;
+            });
+
+            const ventana = window.open('', '_blank');
+            ventana.document.write(`
+                <!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Acta Oficial de Incidentes - Aldea Champollap</title>
+                    <style>
+                        body { font-family: 'Plus Jakarta Sans', Arial, sans-serif; margin: 30px; color: #1e293b; line-height: 1.4; }
+                        .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
+                        .header h1 { font-size: 15px; margin: 0; text-transform: uppercase; font-weight: 900; }
+                        .header h2 { font-size: 13px; margin: 3px 0; color: #334155; }
+                        .header h3 { font-size: 11px; margin: 0; color: #64748b; }
+                        .metadatos { font-size: 12px; margin-bottom: 15px; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                        th { background-color: #0f172a; color: white; text-align: left; padding: 8px; font-size: 11px; text-transform: uppercase; }
+                        .firmas { margin-top: 60px; display: flex; justify-content: space-between; }
+                        .firma-caja { width: 28%; text-align: center; border-top: 1px solid #0f172a; padding-top: 6px; font-size: 11px; font-weight: bold; }
+                        @media print { body { margin: 15mm; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Alcaldía Auxiliar Comunitaria y Consejo Comunitario de Desarrollo</h1>
+                        <h2>Aldea Champollap, San Pedro Sacatepéquez, San Marcos</h2>
+                        <h3>Acta Oficial de Novedades e Incidentes Comunitarios</h3>
+                    </div>
+                    <div class="metadatos">
+                        <strong>Fecha de Emisión:</strong> ${fechaTexto} a las ${horaTexto}<br>
+                        <strong>Total de Sucesos Registrados:</strong> ${todosLosReportes.length}<br>
+                        <strong>Finalidad:</strong> Auditoría de Seguridad Vecinal y Archivo Administrativo.
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Emisor</th>
+                                <th>Tipo</th>
+                                <th>Prioridad</th>
+                                <th>Descripción</th>
+                                <th>Fecha/Hora</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>${filasHtml}</tbody>
+                    </table>
+                    <div class="firmas">
+                        <div class="firma-caja">Alcalde Auxiliar Comunitario<br><span style="font-weight: normal; font-size: 10px; color: #64748b;">Aldea Champollap</span></div>
+                        <div class="firma-caja">Presidente COCODE<br><span style="font-weight: normal; font-size: 10px; color: #64748b;">Comité Comunitario</span></div>
+                        <div class="firma-caja">Secretario de Actas<br><span style="font-weight: normal; font-size: 10px; color: #64748b;">Doy Fe</span></div>
+                    </div>
+                </body>
+                </html>
+            `);
+
+            ventana.document.close();
+            ventana.focus();
+            setTimeout(() => ventana.print(), 500);
+        }
+
+        function verFotoModal(urlFoto, codigo) {
+            document.getElementById('imgModalPreview').src = urlFoto;
+            document.getElementById('btnDescargarFoto').href = urlFoto;
+            document.getElementById('previewModalTitle').innerText = `Evidencia - ${codigo}`;
+            document.getElementById('modalFotoPreview').classList.remove('hidden');
+        }
+
+        function cerrarFotoModal() {
+            document.getElementById('modalFotoPreview').classList.add('hidden');
+            document.getElementById('imgModalPreview').src = '';
+        }
+
+        function abrirModalReporte() { document.getElementById('modalReporte').classList.remove('hidden'); }
+        function cerrarModalReporte() { document.getElementById('modalReporte').classList.add('hidden'); }
+
+        function abrirModalCrearVecino() {
+            document.getElementById('formVecino').reset();
+            document.getElementById('vec_id_usuario').value = '';
+            document.getElementById('modalVecinoTitulo').innerHTML = `<i class="ri-user-add-fill text-emerald-600"></i> Registrar Vecino`;
+            document.getElementById('vec_password_label').innerText = "Contraseña Asignada *";
+            document.getElementById('vec_password').required = true;
+            document.getElementById('modalVecino').classList.remove('hidden');
+        }
+
+        async function abrirModalEditarVecino(id_usuario) {
+            try {
+                const res = await fetch(`${API_URL}/admin/vecinos/${id_usuario}`);
+                const data = await res.json();
+                if (!res.ok || !data.exito) return showToast(data.mensaje || "Error al cargar vecino", true);
+
+                const v = data.data;
+                document.getElementById('vec_id_usuario').value = v.id_usuario;
+                document.getElementById('vec_nombres').value = v.nombres;
+                document.getElementById('vec_apellidos').value = v.apellidos;
+                document.getElementById('vec_dpi').value = v.dpi;
+                document.getElementById('vec_telefono').value = v.telefono;
+                document.getElementById('vec_correo').value = v.correo;
+                document.getElementById('vec_direccion').value = v.direccion_champollap;
+                document.getElementById('vec_estado').value = v.estado_aprobacion;
+                
+                document.getElementById('vec_password').value = '';
+                document.getElementById('vec_password').required = false;
+                document.getElementById('vec_password_label').innerText = "Nueva Contraseña (Opcional)";
+
+                document.getElementById('modalVecinoTitulo').innerHTML = `<i class="ri-edit-line text-amber-600"></i> Editar Vecino`;
+                document.getElementById('modalVecino').classList.remove('hidden');
+            } catch (err) {
+                showToast("Error de conexión", true);
+            }
+        }
+
+        function cerrarModalVecino() { document.getElementById('modalVecino').classList.add('hidden'); }
+
+        async function aprobarVecinoDirecto(id_usuario, nombre) {
+            abrirCyberModal("Aprobar Vecino", `¿Desea aprobar y habilitar la cuenta de "${nombre}"?`, async () => {
+                try {
+                    const res = await fetch(`${API_URL}/admin/vecinos/${id_usuario}/aprobar`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ estado: 'Aprobado' })
+                    });
+                    const d = await res.json();
+                    if (res.ok && d.exito) {
+                        showToast(d.mensaje);
+                        cargarVecinos();
+                    } else {
+                        showToast(d.mensaje || "Error al aprobar vecino", true);
+                    }
+                } catch (err) {
+                    showToast("Error de comunicación", true);
+                }
+            });
+        }
+
+        document.getElementById('formVecino').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnGuardarVecino');
+            btn.disabled = true;
+            btn.innerText = "Guardando...";
+
+            const id_usuario = document.getElementById('vec_id_usuario').value;
+            const esEdicion = id_usuario !== '';
+
+            const payload = {
+                nombres: document.getElementById('vec_nombres').value.trim(),
+                apellidos: document.getElementById('vec_apellidos').value.trim(),
+                dpi: document.getElementById('vec_dpi').value.trim(),
+                telefono: document.getElementById('vec_telefono').value.trim(),
+                correo: document.getElementById('vec_correo').value.trim(),
+                direccion_champollap: document.getElementById('vec_direccion').value.trim(),
+                estado_aprobacion: document.getElementById('vec_estado').value,
+                password: document.getElementById('vec_password').value
+            };
+
+            try {
+                const res = await fetch(esEdicion ? `${API_URL}/admin/vecinos/${id_usuario}` : `${API_URL}/admin/vecinos`, {
+                    method: esEdicion ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    cerrarModalVecino();
+                    cargarVecinos();
+                    showToast(d.mensaje);
+                } else {
+                    showToast(d.mensaje || "Error al procesar", true);
+                }
+            } catch (err) {
+                showToast("Error de comunicación", true);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Guardar";
+            }
+        });
+
+        async function confirmarEliminarVecino(id_usuario, nombre) {
+            abrirCyberModal("Dar de Baja", `¿Confirma dar de baja al vecino "${nombre}"?`, async () => {
+                try {
+                    const res = await fetch(`${API_URL}/admin/vecinos/${id_usuario}`, { method: 'DELETE' });
+                    const d = await res.json();
+                    if (res.ok && d.exito) {
+                        cargarVecinos();
+                        showToast(d.mensaje);
+                    } else {
+                        showToast(d.mensaje || "Error al procesar", true);
+                    }
+                } catch (err) {
+                    showToast("Error de conexión", true);
+                }
+            });
+        }
+
+        async function cargarVecinos() {
+            try {
+                const res = await fetch(`${API_URL}/admin/vecinos`);
+                const data = await res.json();
+                if (data.exito && data.data) {
+                    todosLosVecinos = data.data;
+                    document.getElementById('kpi-vecinos').innerText = todosLosVecinos.length;
+
+                    const pendientes = todosLosVecinos.filter(v => v.estado_aprobacion === 'Pendiente').length;
+                    document.getElementById('txtCountPendientes').innerText = pendientes;
+
+                    filtrarTablaVecinos();
+                }
+            } catch (err) {}
+        }
+
+        function filtrarPadronVecinos(tipo) {
+            filtroVecinosActual = tipo;
+            document.querySelectorAll('.pill-vec').forEach(btn => {
+                btn.className = "pill-vec px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition";
+            });
+            const activo = document.getElementById(`pill-vec-${tipo}`);
+            if (activo) activo.className = "pill-vec px-3 py-1 rounded-full text-xs font-bold bg-slate-900 dark:bg-white text-white dark:text-slate-900 transition";
+
+            renderizarTablaVecinos();
+        }
+
+        function filtrarTablaVecinos() {
+            const input = document.getElementById("busquedaVecino").value.toLowerCase().trim();
+            const tbody = document.getElementById('tabla-vecinos');
+            tbody.innerHTML = '';
+
+            const filtrados = todosLosVecinos.filter(v => {
+                const nombreCompleto = `${v.nombres} ${v.apellidos}`.toLowerCase();
+                const cumpleTexto = nombreCompleto.includes(input) || (v.dpi || '').includes(input) || (v.telefono || '').includes(input);
+                if (!cumpleTexto) return false;
+
+                if (filtroVecinosActual === 'todos') return true;
+                if (filtroVecinosActual === 'pendiente') return v.estado_aprobacion === 'Pendiente';
+                if (filtroVecinosActual === 'aprobado') return v.estado_aprobacion === 'Aprobado';
+                if (filtroVecinosActual === 'suspendido') return v.estado_aprobacion === 'Rechazado';
+                return true;
+            });
+
+            filtrados.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-4 font-semibold text-slate-900 dark:text-white text-xs">${v.nombres} ${v.apellidos}</td>
+                    <td class="p-4 font-mono text-xs text-slate-600 dark:text-slate-400">${v.dpi}</td>
+                    <td class="p-4 font-mono text-xs text-slate-600 dark:text-slate-400">${v.telefono}</td>
+                    <td class="p-4 text-slate-600 dark:text-slate-300 text-xs">${v.correo}</td>
+                    <td class="p-4 text-slate-600 dark:text-slate-300 text-xs">${v.direccion_champollap}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-0.5 text-[10px] rounded-full font-bold border ${
+                            v.estado_aprobacion === 'Aprobado' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                            v.estado_aprobacion === 'Pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'
+                        }">${v.estado_aprobacion}</span>
+                    </td>
+                    <td class="p-4 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            ${v.estado_aprobacion === 'Pendiente' ? `
+                                <button onclick="aprobarVecinoDirecto(${v.id_usuario}, '${v.nombres} ${v.apellidos}')" title="Aprobar Solicitud Vecinal" class="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-xl transition border border-emerald-200">
+                                    <i class="ri-user-follow-line text-base"></i>
+                                </button>
+                            ` : ''}
+                            <button onclick="abrirModalEditarVecino(${v.id_usuario})" title="Editar Vecino" class="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 rounded-xl transition border border-amber-200"><i class="ri-edit-line text-base"></i></button>
+                            <button onclick="confirmarEliminarVecino(${v.id_usuario}, '${v.nombres} ${v.apellidos}')" title="Dar de baja" class="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800 rounded-xl transition border border-red-200"><i class="ri-delete-bin-line text-base"></i></button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function cargarCatalogos() {
+            try {
+                const res = await fetch(`${API_URL}/catalogos`);
+                const data = await res.json();
+                if (data.exito && data.tipos) {
+                    const select = document.getElementById('id_tipo');
+                    select.innerHTML = '';
+                    data.tipos.forEach(tipo => {
+                        const opt = document.createElement('option');
+                        opt.value = tipo.id_tipo;
+                        opt.textContent = `${tipo.nombre} (${tipo.nivel_prioridad})`;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (err) {}
+        }
+
+        async function cargarDashboardData() {
+            try {
+                const res = await fetch(`${API_URL}/reportes`);
+                const responseData = await res.json();
+                todosLosReportes = responseData.data || [];
+
+                document.getElementById('kpi-total').innerText = todosLosReportes.length;
+                document.getElementById('kpi-pendientes').innerText = todosLosReportes.filter(r => (r.estado || '').toLowerCase() === 'pendiente').length;
+                document.getElementById('kpi-criticas').innerText = todosLosReportes.filter(r => {
+                    const prio = (r.nivel_prioridad || '').toLowerCase();
+                    return prio === 'critica' || prio === 'crítica' || prio === 'alta';
+                }).length;
+
+                renderizarTablaReportes();
+                actualizarGraficasEstadisticas();
+            } catch (err) {}
+        }
+
+        async function cambiarEstadoIncidente(id_reporte, id_estado) {
+            try {
+                const res = await fetch(`${API_URL}/admin/reportes/${id_reporte}/estado`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_estado: id_estado })
+                });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    showToast(d.mensaje);
+                    cargarDashboardData();
+                } else {
+                    showToast(d.mensaje || "Error al actualizar estado", true);
+                }
+            } catch (err) {
+                showToast("Error de conexión", true);
+            }
+        }
+
+        function confirmarReporteFalso(id_reporte, codigo) {
+            abrirCyberModal(
+                "Confirmar Falsificación (RN-03)",
+                `¿Desea marcar el reporte ${codigo} como FALSO?\n1. Se desestimará del sistema.\n2. Se suspenderá la cuenta del vecino emisor.`,
+                async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/admin/reportes/${id_reporte}/marcar-falso`, { method: 'POST' });
+                        const d = await res.json();
+                        if (res.ok && d.exito) {
+                            showToast(d.mensaje, true);
+                            cargarDashboardData();
+                            cargarVecinos();
+                        } else {
+                            showToast(d.mensaje || "Error al sancionar", true);
+                        }
+                    } catch (err) {
+                        showToast("Error de conexión al sancionar", true);
+                    }
+                }
+            );
+        }
+
+        // --- NUEVA FUNCIÓN PARA ELIMINAR REPORTE ---
+        function confirmarEliminarReporte(id_reporte, codigo) {
+            abrirCyberModal(
+                "Eliminar Registro de Bitácora",
+                `¿Está seguro de eliminar permanentemente el reporte ${codigo} de la base de datos comunitaria?`,
+                async () => {
+                    try {
+                        const res = await fetch(`${API_URL}/admin/reportes/${id_reporte}`, { method: 'DELETE' });
+                        const d = await res.json();
+                        if (res.ok && d.exito) {
+                            showToast(d.mensaje || "Reporte eliminado exitosamente");
+                            cargarDashboardData();
+                        } else {
+                            showToast(d.mensaje || "Error al eliminar el reporte", true);
+                        }
+                    } catch (err) {
+                        showToast("Error de conexión al eliminar", true);
+                    }
+                }
+            );
+        }
+
+        document.getElementById('formIncidente').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Ya no enviamos fecha desde el cliente; el servidor asume la hora oficial exacta de Guatemala
+            const payload = {
+                id_tipo: parseInt(document.getElementById('id_tipo').value),
+                descripcion: document.getElementById('descripcion').value,
+                latitud: parseFloat(document.getElementById('latitud').value),
+                longitud: parseFloat(document.getElementById('longitud').value),
+                origen_ubicacion: document.getElementById('origen_ubicacion').value
+            };
+
+            const res = await fetch(`${API_URL}/reportes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const response = await res.json();
+            if (res.ok && response.exito) {
+                cerrarModalReporte();
+                document.getElementById('descripcion').value = '';
+                cargarDashboardData();
+                showToast(`Reporte ${response.codigo_seguimiento} guardado exitosamente`);
+            }
+        });
+
+        async function enviarAlertaSOS() {
+            const res = await fetch(`${API_URL}/alertas-rapidas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    latitud: parseFloat(document.getElementById('latitud').value), 
+                    longitud: parseFloat(document.getElementById('longitud').value) 
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.exito) showToast("🚨 Alerta S.O.S transmitida");
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            cargarCatalogos();
+            cargarDashboardData();
+            cargarVecinos();
+            cargarComunicadosAdmin();
+            verificarAlertasSOS();
+            solicitarPermisoNotificaciones();
+            setInterval(verificarAlertasSOS, 6000);
+        });
+    </script>
+</body>
+</html>

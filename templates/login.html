@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Champollap SOS</title>
+    
+    <!-- Soporte PWA Móvil -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#dc2626">
+
+    <!-- Tipografías Plus Jakarta Sans y JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        .fondo-comunidad {
+            background-color: #0f172a;
+            background-image: 
+                linear-gradient(rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.88)), 
+                url('/static/recursos/fondo.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+    </style>
+</head>
+<body class="fondo-comunidad font-sans flex items-center justify-center min-h-screen p-4 text-slate-800 antialiased selection:bg-red-500 selection:text-white">
+
+    <div class="w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl overflow-hidden border border-white/20 my-8">
+        <!-- Encabezado con Identidad Visual -->
+        <div class="bg-slate-950/90 p-6 text-center text-white border-b border-slate-800 flex flex-col items-center">
+            <div class="w-20 h-20 mb-3 rounded-2xl bg-white p-2 shadow-lg flex items-center justify-center overflow-hidden border border-slate-200">
+                <img src="/static/recursos/logo.jpg" 
+                     alt="Logo Auxiliatura Champollap" 
+                     class="w-full h-full object-contain"
+                     onerror="if(!this.dataset.retry){ this.dataset.retry=1; this.src='/static/recursos/logo.jpeg'; } else { this.style.display='none'; document.getElementById('icono-fallback').classList.remove('hidden'); }">
+                <i id="icono-fallback" class="ri-shield-cross-fill text-3xl text-red-600 hidden"></i>
+            </div>
+            <h2 class="text-xl font-black tracking-wide uppercase">
+                Champollap <span class="text-red-500">SOS</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Alcaldía Auxiliar Comunitaria & COCODE</p>
+        </div>
+
+        <!-- Alerta de Bloqueo por Intentos -->
+        <div id="alertaBloqueo" class="hidden bg-red-50 border-l-4 border-red-500 p-4 m-6 mb-0 rounded-r-xl">
+            <div class="flex items-center gap-3">
+                <i class="ri-error-warning-fill text-red-500 text-xl"></i>
+                <p id="textoBloqueo" class="text-xs text-red-700 font-bold leading-relaxed">
+                    Acceso bloqueado temporalmente por seguridad tras 3 intentos fallidos de inicio de sesión.
+                </p>
+            </div>
+        </div>
+
+        <!-- Formulario -->
+        <form id="formLogin" class="p-6 sm:p-8 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Correo, DPI o Teléfono</label>
+                <div class="relative">
+                    <i class="ri-user-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="credencial" required autocomplete="off" spellcheck="false" placeholder="" 
+                           class="w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Contraseña</label>
+                <div class="relative">
+                    <i class="ri-lock-line absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="password" id="password" required placeholder="•••••••••••" 
+                           class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition">
+                    <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none">
+                        <i id="iconoOjo" class="ri-eye-off-line text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="btnLogin" class="w-full py-3 bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white font-bold rounded-2xl shadow-lg shadow-red-600/30 transition duration-200 text-sm">
+                Ingresar al Sistema
+            </button>
+
+            <div class="text-center pt-2">
+                <p class="text-xs text-slate-500">
+                    ¿Eres vecino y aún no tienes cuenta? 
+                    <a href="/registro" class="text-red-600 font-semibold hover:underline">Regístrate aquí</a>
+                </p>
+            </div>
+        </form>
+    </div>
+
+    <!-- Toast de Notificaciones -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden max-w-xs bg-slate-950 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 border border-slate-800">
+        <i id="toast-icon" class="ri-checkbox-circle-fill text-xl text-emerald-400"></i>
+        <span id="toast-message" class="text-xs font-semibold"></span>
+    </div>
+
+    <script>
+        const MAX_INTENTOS = 3;
+        const TIEMPO_BLOQUEO_MS = 3 * 60 * 1000; // 3 minutos en milisegundos
+        let intervaloReloj = null;
+
+        // Comprobar si ya estaba bloqueado al cargar la página o al enfocar la pestaña
+        window.addEventListener('DOMContentLoaded', () => {
+            verificarBloqueoPrevio();
+        });
+
+        window.addEventListener('focus', () => {
+            verificarBloqueoPrevio();
+        });
+
+        function verificarBloqueoPrevio() {
+            const tiempoBloqueoHasta = parseInt(localStorage.getItem('bloqueo_login_hasta') || '0', 10);
+            const ahora = Date.now();
+
+            if (tiempoBloqueoHasta && ahora < tiempoBloqueoHasta) {
+                bloquearFormulario(tiempoBloqueoHasta);
+            } else {
+                desbloquearFormulario();
+            }
+        }
+
+        function bloquearFormulario(tiempoBloqueoHasta) {
+            document.getElementById('credencial').disabled = true;
+            document.getElementById('password').disabled = true;
+            const btn = document.getElementById('btnLogin');
+            btn.disabled = true;
+            btn.className = "w-full py-3 bg-slate-300 text-slate-500 font-bold rounded-2xl cursor-not-allowed text-sm";
+            document.getElementById('alertaBloqueo').classList.remove('hidden');
+
+            if (intervaloReloj) clearInterval(intervaloReloj);
+
+            intervaloReloj = setInterval(() => {
+                const ahora = Date.now();
+                const restante = tiempoBloqueoHasta - ahora;
+
+                if (restante <= 0) {
+                    clearInterval(intervaloReloj);
+                    desbloquearFormulario();
+                } else {
+                    const minutos = Math.floor(restante / (60 * 1000));
+                    const segundos = Math.floor((restante % (60 * 1000)) / 1000);
+                    const tiempoStr = `${minutos}:${segundos < 10 ? '0' : ''}${segundos}`;
+                    
+                    btn.innerText = `Bloqueado (${tiempoStr})`;
+                    document.getElementById('textoBloqueo').innerText = `Acceso bloqueado temporalmente por seguridad. Intenta de nuevo en ${tiempoStr}.`;
+                }
+            }, 1000);
+        }
+
+        function desbloquearFormulario() {
+            if (intervaloReloj) clearInterval(intervaloReloj);
+            
+            // Solo limpiamos si realmente existía un bloqueo registrado
+            if (localStorage.getItem('bloqueo_login_hasta')) {
+                localStorage.removeItem('intentos_login');
+                localStorage.removeItem('bloqueo_login_hasta');
+            }
+
+            const credencialInput = document.getElementById('credencial');
+            const passwordInput = document.getElementById('password');
+            const btn = document.getElementById('btnLogin');
+
+            if (credencialInput.disabled) {
+                credencialInput.disabled = false;
+                passwordInput.disabled = false;
+                btn.disabled = false;
+                btn.className = "w-full py-3 bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white font-bold rounded-2xl shadow-lg shadow-red-600/30 transition duration-200 text-sm";
+                btn.innerText = "Ingresar al Sistema";
+                document.getElementById('alertaBloqueo').classList.add('hidden');
+            }
+        }
+
+        function showToast(msg, esError = false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            document.getElementById('toast-icon').className = esError 
+                ? "ri-error-warning-fill text-xl text-red-400" 
+                : "ri-checkbox-circle-fill text-xl text-emerald-400";
+            toast.classList.add('flex');
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3500);
+        }
+
+        // Función para alternar visibilidad de la contraseña con el botón del ojito
+        function togglePasswordVisibility() {
+            const inputPass = document.getElementById('password');
+            const iconoOjo = document.getElementById('iconoOjo');
+            if (inputPass.type === 'password') {
+                inputPass.type = 'text';
+                iconoOjo.className = 'ri-eye-line text-sm text-red-600';
+            } else {
+                inputPass.type = 'password';
+                iconoOjo.className = 'ri-eye-off-line text-sm';
+            }
+        }
+
+        document.getElementById('formLogin').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validar si sigue vigente el tiempo de bloqueo
+            const tiempoBloqueoHasta = parseInt(localStorage.getItem('bloqueo_login_hasta') || '0', 10);
+            if (tiempoBloqueoHasta && Date.now() < tiempoBloqueoHasta) {
+                bloquearFormulario(tiempoBloqueoHasta);
+                return;
+            }
+
+            const btn = document.getElementById('btnLogin');
+            btn.disabled = true;
+            btn.innerText = "Verificando...";
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        credencial: document.getElementById('credencial').value.trim(),
+                        password: document.getElementById('password').value
+                    })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.exito) {
+                    // Limpiamos los registros de intentos y bloqueos al iniciar sesión correctamente
+                    localStorage.removeItem('intentos_login');
+                    localStorage.removeItem('bloqueo_login_hasta');
+                    if (intervaloReloj) clearInterval(intervaloReloj);
+
+                    showToast("Credenciales correctas. Redirigiendo...");
+                    setTimeout(() => { 
+                        window.location.href = data.redirect || '/'; 
+                    }, 1000);
+                } else {
+                    let intentos = parseInt(localStorage.getItem('intentos_login') || '0', 10);
+                    intentos++;
+                    localStorage.setItem('intentos_login', intentos.toString());
+
+                    const restantes = MAX_INTENTOS - intentos;
+                    if (restantes > 0) {
+                        showToast(`${data.mensaje || "Error al autenticar"}. Te quedan ${restantes} intento(s).`, true);
+                        btn.disabled = false;
+                        btn.innerText = "Ingresar al Sistema";
+                    } else {
+                        // Guardar la marca de tiempo exacta en que caducará el bloqueo (3 minutos)
+                        const expiraEn = Date.now() + TIEMPO_BLOQUEO_MS;
+                        localStorage.setItem('bloqueo_login_hasta', expiraEn.toString());
+                        
+                        bloquearFormulario(expiraEn);
+                        showToast("Se agotaron los 3 intentos. Acceso bloqueado por 3 minutos.", true);
+                    }
+                }
+            } catch (err) {
+                showToast("Error de comunicación con el servidor", true);
+                btn.disabled = false;
+                btn.innerText = "Ingresar al Sistema";
+            }
+        });
+    </script>
+</body>
+</html>

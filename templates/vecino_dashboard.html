@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Vecinal - Champollap SOS</title>
+    
+    <!-- Soporte PWA Móvil -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#dc2626">
+
+    <!-- Tipografías Plus Jakarta Sans y JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    
+    <!-- Leaflet base y complementos -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb { background: #1e293b; border: 1px solid #334155; }
+        
+        /* Fondo Institucional con Imagen (Aldea Champollap) */
+        body {
+            background: linear-gradient(to bottom, rgba(15, 23, 42, 0.65), rgba(30, 41, 59, 0.75)), url('/static/recursos/f.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        .dark body {
+            background: linear-gradient(to bottom, rgba(3, 7, 18, 0.82), rgba(12, 19, 34, 0.88)), url('/static/recursos/f.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+
+        /* Estilo de Tarjetas Tácticas (Glassmorphism Avanzado) */
+        .tarjeta-tactica {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .dark .tarjeta-tactica {
+            background: rgba(12, 19, 34, 0.88);
+            border: 1px solid rgba(30, 41, 59, 0.8);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+        }
+        .tarjeta-tactica:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.08), 0 0 20px rgba(37, 99, 235, 0.1);
+        }
+        .dark .tarjeta-tactica:hover {
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 25px rgba(37, 99, 235, 0.2);
+        }
+        
+        .leaflet-container {
+            font-family: inherit !important;
+            background: #f8fafc !important;
+        }
+        .leaflet-control-geocoder {
+            border-radius: 16px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05) !important;
+            border: 1px solid #e2e8f0 !important;
+            font-family: inherit !important;
+            background: #ffffff !important;
+        }
+        .dark .leaflet-control-geocoder {
+            background: #0f172a !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+        .leaflet-control-geocoder-form input {
+            font-size: 13px !important;
+            padding: 8px 14px !important;
+            outline: none !important;
+            border-radius: 12px !important;
+        }
+        .custom-poi-marker { background: transparent; border: none; }
+    </style>
+</head>
+<body class="bg-[#f4f7fb] dark:bg-[#070b14] font-sans min-h-screen text-slate-800 dark:text-slate-100 antialiased selection:bg-red-500 selection:text-white transition-colors duration-200">
+
+    <!-- BANNER CONTINGENCIA OFFLINE -->
+    <div id="bannerOffline" class="hidden bg-amber-500 text-slate-950 px-4 py-2.5 text-center text-xs font-bold sticky top-0 inset-x-0 z-50 shadow-md flex items-center justify-center gap-2">
+        <i class="ri-wifi-off-line text-sm"></i>
+        <span>Modo sin conexión activo. Tus reportes se guardarán en tu dispositivo y se enviarán automáticamente al recuperar red.</span>
+    </div>
+
+    <!-- BANNER CUENTA SUSPENDIDA (RN-03) -->
+    <div id="bannerSuspendido" class="hidden bg-red-600 text-white px-4 py-3 text-center text-xs font-bold sticky top-0 inset-x-0 z-50 shadow-lg flex items-center justify-center gap-2">
+        <i class="ri-error-warning-fill text-base"></i>
+        <span>CUENTA SUSPENDIDA: Por normativa comunitaria (RN-03) debido a reportes falsos previos, tienes bloqueada la emisión de S.O.S y nuevos reportes.</span>
+    </div>
+
+    <!-- HEADER SUPERIOR ESTILO CENTRO DE MANDO -->
+    <header class="h-20 bg-white/80 dark:bg-[#0c1322]/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-800/80 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 flex items-center justify-center text-white shadow-md shadow-red-500/20">
+                <i class="ri-shield-cross-fill text-2xl"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-slate-900 dark:text-white text-base tracking-tight leading-none">
+                    Champollap <span class="text-red-600">SOS</span>
+                </h1>
+                <p class="text-[11px] text-slate-400 font-medium mt-1">Portal Vecinal de Seguridad Ciudadana</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2.5 sm:gap-3">
+            <!-- IDENTIFICADOR VISUAL DE USUARIO ACTIVO -->
+            <div class="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs font-mono shadow-sm">
+                    V
+                </div>
+                <div class="hidden sm:block text-left">
+                    <span class="text-xs font-bold text-slate-900 dark:text-white block leading-tight truncate max-w-[140px]">{{ usuario.nombres }} {{ usuario.apellidos }}</span>
+                    <span id="txtEstadoRol" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 font-mono">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> {{ usuario.rol }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- BOTÓN NUEVO REPORTE RÁPIDO -->
+            <button onclick="abrirModalReporte()" id="btnHeaderReporte" class="hidden md:flex bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2.5 rounded-2xl text-xs font-extrabold items-center gap-2 transition shadow-md group">
+                <div class="w-6 h-6 rounded-lg bg-white/20 text-white flex items-center justify-center text-xs shadow-sm group-hover:scale-110 transition">
+                    <i class="ri-add-circle-line"></i>
+                </div>
+                <span>Reportar</span>
+            </button>
+
+            <!-- Selector Modo Oscuro -->
+            <button onclick="toggleModoOscuro()" id="btnTheme" class="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-yellow-400 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition shadow-sm hover:scale-105" title="Cambiar Tema">
+                <i id="iconoTheme" class="ri-moon-line text-lg"></i>
+            </button>
+
+            <!-- Menú de Notificaciones -->
+            <div class="relative">
+                <button onclick="toggleMenuNotificaciones()" class="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition shadow-sm relative hover:scale-105" title="Avisos">
+                    <i class="ri-notification-3-line text-lg"></i>
+                    <span id="badgeNotificaciones" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-[#0c1322]">
+                        0
+                    </span>
+                </button>
+
+                <div id="dropdownNotificaciones" class="hidden absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
+                    <div class="p-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800">
+                        <span class="text-xs font-black uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                            <i class="ri-notification-badge-fill text-red-500"></i> Notificaciones del COCODE
+                        </span>
+                        <button onclick="toggleMenuNotificaciones()" class="text-slate-400 hover:text-white text-sm"><i class="ri-close-line"></i></button>
+                    </div>
+                    <div id="listaNotificaciones" class="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 p-2 space-y-1">
+                        <div class="p-4 text-center text-xs text-slate-400 italic">Cargando avisos...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botón Salir -->
+            <a href="/logout" title="Cerrar Sesión" class="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/40 text-slate-500 hover:text-red-600 border border-slate-200/80 dark:border-slate-700 flex items-center justify-center transition shadow-sm hover:scale-105">
+                <i class="ri-logout-box-r-line text-lg"></i>
+            </a>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 sm:p-8 space-y-6">
+
+        <!-- BANNER ALERTA S.O.S (AUXILIO INMEDIATO A 1 TOQUE) -->
+        <div class="tarjeta-tactica bg-gradient-to-r from-red-600 via-rose-600 to-red-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-red-600/20 flex flex-col sm:flex-row items-center justify-between gap-6 border border-red-400/40 relative overflow-hidden group">
+            <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="space-y-2 text-center sm:text-left relative z-10">
+                <div class="inline-flex items-center gap-1.5 px-3.5 py-1 bg-black/30 rounded-full text-[11px] font-bold uppercase text-red-200 border border-red-300/30 font-mono">
+                    <span class="w-2 h-2 rounded-full bg-red-400 animate-ping"></span> Auxilio Inmediato Satelital
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">¿Estás en peligro o emergencia?</h2>
+                <p class="text-xs sm:text-sm text-red-100 max-w-xl leading-relaxed">
+                    Presiona el botón de auxilio para transmitir de forma instantánea tus coordenadas GPS exactas al centro de mando del COCODE.
+                </p>
+            </div>
+            <button onclick="abrirModalSOS()" id="btnSosPrincipal" class="w-full sm:w-auto px-8 py-4 bg-white text-red-600 hover:bg-slate-100 font-black rounded-2xl shadow-2xl uppercase tracking-wider flex items-center justify-center gap-3 text-sm active:scale-95 transition transform shrink-0 relative z-10 group-hover:scale-105">
+                <i class="ri-alarm-warning-fill text-2xl text-red-600 animate-bounce"></i>
+                <span>Emitir Alerta S.O.S</span>
+            </button>
+        </div>
+
+        <!-- TARJETAS KPIS TÁCTICAS -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <!-- TARJETA 1 -->
+            <div class="tarjeta-tactica p-6 rounded-3xl relative overflow-hidden group">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 to-blue-600"></div>
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-500/10 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none blur-xl"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 font-mono block">Mis Reportes Emitidos</span>
+                        <h3 id="kpi-mis-reportes" class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1.5 font-mono">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-lg shadow-indigo-600/30">
+                        <i class="ri-file-list-3-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-200/60 dark:border-slate-800 relative z-10">
+                    <span class="text-emerald-600 font-bold flex items-center gap-1">
+                        <i class="ri-checkbox-circle-line"></i> Sincronizados
+                    </span>
+                    <span class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-bold font-mono border border-indigo-200/50">En bitácora</span>
+                </div>
+            </div>
+
+            <!-- TARJETA 2 -->
+            <div class="tarjeta-tactica p-6 rounded-3xl relative overflow-hidden group">
+                <div id="kpiBarraEstado" class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600"></div>
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none blur-xl"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-mono block" id="kpiTituloEstado">Estado de Mi Cuenta</span>
+                        <h3 id="kpiTextoEstado" class="text-2xl font-extrabold text-emerald-600 mt-1.5 font-mono flex items-center gap-1.5">
+                            <i class="ri-shield-check-fill text-2xl"></i> Activa
+                        </h3>
+                    </div>
+                    <div id="kpiIconoEstado" class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-lg shadow-emerald-600/30">
+                        <i class="ri-user-star-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-200/60 dark:border-slate-800 relative z-10">
+                    <span id="kpiSubEstado" class="text-emerald-600 font-bold flex items-center gap-1">
+                        <i class="ri-check-line"></i> Validado
+                    </span>
+                    <span class="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 rounded-lg text-[10px] font-bold font-mono border border-emerald-200/50">Padrón oficial</span>
+                </div>
+            </div>
+
+            <!-- TARJETA 3 -->
+            <div class="tarjeta-tactica p-6 rounded-3xl relative overflow-hidden group">
+                <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500"></div>
+                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-500/10 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none blur-xl"></div>
+                <div class="flex items-center justify-between relative z-10">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 font-mono block">Avisos COCODE</span>
+                        <h3 id="kpi-total-comunicados" class="text-3xl font-extrabold text-amber-600 mt-1.5 font-mono">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center text-xl shadow-lg shadow-amber-500/30">
+                        <i class="ri-megaphone-fill"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between text-xs pt-3 border-t border-slate-200/60 dark:border-slate-800 relative z-10">
+                    <span class="text-amber-600 font-bold flex items-center gap-1">
+                        <i class="ri-broadcast-line"></i> Comunitario
+                    </span>
+                    <span class="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold font-mono border border-amber-200/50">Vigentes</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- DIRECTORIO DE EMERGENCIAS DIRECTAS A 1 TOQUE -->
+        <div class="tarjeta-tactica p-6 rounded-3xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+                <span class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 font-mono">
+                    <i class="ri-phone-fill text-red-500 text-base"></i> Directorio de Auxilio Directo
+                </span>
+                <span class="text-[11px] text-slate-400 font-medium">Marcación telefónica inmediata 24/7</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <a href="tel:110" class="p-5 rounded-3xl bg-white/60 dark:bg-slate-900/40 border-2 border-blue-100 dark:border-blue-950/60 hover:border-blue-400 transition relative overflow-hidden group shadow-sm flex items-center justify-between">
+                    <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-50 dark:bg-blue-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md shadow-blue-600/20 group-hover:scale-105 transition shrink-0">
+                            <i class="ri-shield-star-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 font-mono block">Policía Nacional Civil</span>
+                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">PNC San Pedro</h4>
+                            <span class="text-xs font-mono text-blue-600 dark:text-blue-400 font-extrabold block mt-0.5">110 &bull; 7760-0000</span>
+                        </div>
+                    </div>
+                    <div class="relative z-10 shrink-0 text-right">
+                        <span class="px-3 py-1.5 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded-xl text-[10px] font-bold font-mono inline-flex items-center gap-1 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition">
+                            <i class="ri-phone-call-line"></i> Llamar
+                        </span>
+                    </div>
+                </a>
+
+                <a href="tel:122" class="p-5 rounded-3xl bg-white/60 dark:bg-slate-900/40 border-2 border-amber-100 dark:border-amber-950/60 hover:border-amber-400 transition relative overflow-hidden group shadow-sm flex items-center justify-between">
+                    <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 dark:bg-amber-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center text-xl shadow-md shadow-amber-500/20 group-hover:scale-105 transition shrink-0">
+                            <i class="ri-first-aid-kit-fill"></i>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 font-mono block">Cuerpo de Socorro</span>
+                            <h4 class="text-sm font-extrabold text-slate-900 dark:text-white mt-0.5">Bomberos Voluntarios</h4>
+                            <span class="text-xs font-mono text-amber-600 dark:text-amber-400 font-extrabold block mt-0.5">Línea 122</span>
+                        </div>
+                    </div>
+                    <div class="relative z-10 shrink-0 text-right">
+                        <span class="px-3 py-1.5 bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 rounded-xl text-[10px] font-bold font-mono inline-flex items-center gap-1 shadow-sm group-hover:bg-amber-500 group-hover:text-slate-950 transition">
+                            <i class="ri-phone-call-line"></i> Llamar
+                        </span>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <!-- MAPA VISUALIZADOR CENTRAL -->
+        <div id="mapa-seccion" class="tarjeta-tactica p-6 sm:p-8 rounded-3xl space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h2 class="font-extrabold text-slate-900 dark:text-white text-base sm:text-lg flex items-center gap-2">
+                        <i class="ri-map-pin-2-fill text-blue-600"></i> Mapa de Seguridad y Recursos Comunitarios
+                    </h2>
+                    <p class="text-xs text-slate-400">Consulta los incidentes verificados y localiza los puntos seguros de Aldea Champollap.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="toggleCapaInfraestructura()" id="btnCapaInfra" class="px-4 py-2 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 transition flex items-center gap-1.5 shadow-sm">
+                        <i class="ri-hospital-line"></i> <span id="txtCapaInfra">Ver Puntos Seguros</span>
+                    </button>
+                    <button onclick="abrirModalReporte()" id="btnMapaReporte" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition">
+                        <i class="ri-add-circle-line text-sm"></i> Reportar Incidente
+                    </button>
+                </div>
+            </div>
+
+            <div class="relative rounded-2xl border border-slate-200/80 dark:border-slate-700 overflow-hidden shadow-inner">
+                <div id="map" class="h-[420px] w-full z-0"></div>
+                <!-- Leyenda Flotante Moderna -->
+                <div class="absolute bottom-3 left-3 z-[400] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <span class="text-slate-400 font-bold uppercase text-[10px] font-mono mr-1">Referencias:</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-red-600 inline-block shadow-sm"></span> Crítico</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-amber-500 inline-block shadow-sm"></span> Alerta</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full bg-emerald-600 inline-block shadow-sm"></span> Puntos Seguros</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- COMUNICADOS DEL COCODE -->
+        <div id="comunicados-seccion" class="tarjeta-tactica p-6 sm:p-8 rounded-3xl space-y-4">
+            <div class="border-b border-slate-200/60 dark:border-slate-800 pb-3">
+                <h2 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                    <i class="ri-megaphone-fill text-amber-500"></i> Avisos Oficiales de la Alcaldía Auxiliar
+                </h2>
+                <p class="text-xs text-slate-400">Información comunitaria emitida por los líderes de Aldea Champollap</p>
+            </div>
+            <div id="muroComunicados" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                <!-- Se llena con JS -->
+            </div>
+        </div>
+
+        <!-- MIS REPORTES Y DIFUSIÓN EN WHATSAPP -->
+        <div id="mis-reportes-seccion" class="tarjeta-tactica rounded-3xl overflow-hidden">
+            <div class="p-6 border-b border-slate-200/60 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-extrabold text-slate-900 dark:text-white text-base">Mis Reportes y Evidencias</h2>
+                    <p class="text-xs text-slate-400">Monitorea el progreso de tus casos y compártelos con la comunidad</p>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <button onclick="cargarMisReportes()" class="p-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 text-slate-600 dark:text-slate-300 rounded-2xl border border-slate-200/80 dark:border-slate-700 transition" title="Refrescar">
+                        <i class="ri-refresh-line"></i>
+                    </button>
+                    <button onclick="abrirModalReporte()" id="btnSeccionReporte" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+                        <i class="ri-add-line"></i> Nuevo Reporte
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <div id="listaMisReportes" class="space-y-4">
+                    <!-- Se llena con JS -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL DE CONFIRMACIÓN S.O.S MEJORADO -->
+    <div id="modalSOSConfirm" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center hidden z-50 p-4 transition-opacity">
+        <div class="tarjeta-tactica bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border-2 border-red-500/40 p-6 text-center space-y-4">
+            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/80 text-red-600 flex items-center justify-center mx-auto text-3xl shadow-inner animate-pulse">
+                <i class="ri-alarm-warning-fill"></i>
+            </div>
+            <div>
+                <span class="text-[10px] font-black uppercase tracking-wider text-red-600 font-mono">Protocolo de Emergencia</span>
+                <h3 class="text-lg font-extrabold text-slate-900 dark:text-white mt-1">¿Emitir Alerta S.O.S Inmediata?</h3>
+                <p class="text-xs text-slate-600 dark:text-slate-300 mt-2 leading-relaxed">
+                    Se transmitirán tus coordenadas GPS actuales de forma prioritaria al centro de mando del COCODE y a las unidades de auxilio.
+                </p>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button type="button" onclick="cerrarModalSOS()" class="px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 transition">Cancelar</button>
+                <button type="button" onclick="ejecutarAlertaSOS()" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-red-600/30">Sí, Emitir Alerta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FORMULARIO DE REPORTE -->
+    <div id="modalReporte" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center hidden z-50 p-4 transition-opacity">
+        <div class="tarjeta-tactica bg-white dark:bg-[#0f172a] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col">
+            <div class="p-5 bg-slate-950 text-white flex justify-between items-center shrink-0 border-b border-slate-800">
+                <h4 class="font-bold text-sm flex items-center gap-2 font-mono">
+                    <i class="ri-megaphone-line text-blue-500"></i> Nuevo Reporte Ciudadano
+                </h4>
+                <button onclick="cerrarModalReporte()" class="text-slate-400 hover:text-white"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            
+            <form id="formIncidente" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Tipo de Suceso *</label>
+                    <select id="id_tipo" class="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 font-medium" required></select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">Descripción de lo Sucedido *</label>
+                    <textarea id="descripcion" rows="3" class="w-full p-3 border border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500" placeholder="Detalla horarios, referencias o involucrados..." required></textarea>
+                </div>
+
+                <!-- Botón de GPS en Tiempo Real -->
+                <div class="space-y-1.5">
+                    <button type="button" onclick="obtenerUbicacionGPSReporte()" class="w-full py-3 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm">
+                        <i class="ri-crosshair-2-line text-sm animate-pulse"></i> <span>Capturar Ubicación GPS en Tiempo Real</span>
+                    </button>
+                    <p id="gpsEstadoTexto" class="text-[10px] text-slate-400 text-center font-mono">Ubicación lista para adjuntar</p>
+                </div>
+
+                <!-- Grabador de Audio / Nota de Voz -->
+                <div class="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5 font-mono">
+                            <i class="ri-mic-fill text-red-500"></i> Nota de Voz (Opcional)
+                        </span>
+                        <span id="tiempoGrabacion" class="text-xs font-mono font-bold text-slate-500">00:00</span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btnGrabarVoz" onclick="alternarGrabacionVoz()" class="flex-1 py-2.5 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm">
+                            <i class="ri-record-circle-line text-sm"></i> <span id="txtBtnGrabar">Grabar Nota de Voz</span>
+                        </button>
+                        <button type="button" id="btnBorrarAudio" onclick="descartarAudio()" class="hidden py-2.5 px-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition">
+                            <i class="ri-delete-bin-line"></i>
+                        </button>
+                    </div>
+                    <audio id="reproductorPreviaVoz" controls class="hidden w-full h-8 mt-2"></audio>
+                </div>
+
+                <!-- Evidencia Fotográfica -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1 flex items-center justify-between">
+                        <span>Evidencia Fotográfica (Opcional)</span>
+                        <span class="text-[10px] text-slate-400 lowercase font-mono">jpg, png, webp</span>
+                    </label>
+                    <input type="file" id="foto" accept="image/png, image/jpeg, image/jpg, image/webp" onchange="mostrarPreviaFoto(event)"
+                           class="w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-slate-200 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-800 cursor-pointer">
+
+                    <div id="cajaPrevia" class="hidden mt-2 relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-950 p-1">
+                        <img id="imgPrevia" src="" alt="Previa" class="w-full h-36 object-contain rounded-xl">
+                        <button type="button" onclick="quitarFotoPrevia()" class="absolute top-2 right-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1">
+                            <i class="ri-delete-bin-line"></i> Quitar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Coordenadas Guardadas -->
+                <div class="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 font-mono flex items-center justify-between">
+                    <div>
+                        <i class="ri-map-pin-line text-blue-600 mr-1 font-bold"></i> Coordenadas: 
+                        <span id="modalCoordText" class="text-slate-800 dark:text-slate-200 font-bold">14.96250, -91.77640</span>
+                    </div>
+                    <span id="badgePrecision" class="text-[10px] px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-full text-slate-600 dark:text-slate-300">Estándar</span>
+                </div>
+
+                <input type="hidden" id="latitud" value="14.9625">
+                <input type="hidden" id="longitud" value="-91.7764">
+                <input type="hidden" id="origen_ubicacion" value="GPS_Predeterminado">
+
+                <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <button type="button" onclick="cerrarModalReporte()" class="px-4 py-2.5 text-xs font-semibold border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-600 dark:text-slate-400 hover:bg-slate-100">Cancelar</button>
+                    <button type="submit" id="btnEnviar" class="px-5 py-2.5 text-xs bg-blue-600 text-white rounded-2xl font-bold shadow-md hover:bg-blue-700 transition">Emitir Reporte</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL AMPLIFICADOR DE FOTOGRAFÍA -->
+    <div id="modalFotoPreview" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4" onclick="cerrarModalFoto()">
+        <div class="bg-white dark:bg-[#0f172a] rounded-3xl overflow-hidden max-w-lg w-full shadow-2xl border border-slate-800" onclick="event.stopPropagation()">
+            <div class="p-4 bg-slate-950 text-white flex justify-between items-center border-b border-slate-800">
+                <span class="text-xs font-mono font-bold uppercase tracking-wider">Evidencia Fotográfica</span>
+                <button onclick="cerrarModalFoto()" class="text-slate-400 hover:text-white"><i class="ri-close-line text-xl"></i></button>
+            </div>
+            <div class="p-2 max-h-[70vh] flex items-center justify-center bg-slate-950">
+                <img id="imgModalPreview" src="" alt="Evidencia" class="max-w-full max-h-[65vh] rounded-2xl object-contain shadow-inner">
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICADOR -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden max-w-xs bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-800">
+        <i id="toast-icon" class="ri-checkbox-circle-fill text-xl text-emerald-400"></i>
+        <span id="toast-message" class="text-xs font-semibold"></span>
+    </div>
+
+    <script>
+        const DEFAULT_LAT = 14.9625;
+        const DEFAULT_LNG = -91.7764;
+        let cuentaBloqueadaGlobal = false;
+        
+        // 1. Mapa Leaflet (Visualizador) con Esri World Street Map
+        let map = L.map('map', { zoomControl: false }).setView([DEFAULT_LAT, DEFAULT_LNG], 15);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012',
+            maxZoom: 19
+        }).addTo(map);
+        setTimeout(() => map.invalidateSize(), 300);
+
+        let markersGroup = L.layerGroup().addTo(map);
+
+        // Service Worker PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(console.error);
+        }
+
+        // Modo Oscuro
+        function aplicarTemaInicial() {
+            if (localStorage.getItem('champollap_theme') === 'dark' || (!('champollap_theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('iconoTheme').className = 'ri-sun-line text-lg text-yellow-400';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('iconoTheme').className = 'ri-moon-line text-lg';
+            }
+        }
+        function toggleModoOscuro() {
+            const esOscuro = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('champollap_theme', esOscuro ? 'dark' : 'light');
+            document.getElementById('iconoTheme').className = esOscuro ? 'ri-sun-line text-lg text-yellow-400' : 'ri-moon-line text-lg';
+        }
+        aplicarTemaInicial();
+
+        function showToast(msg, esErr = false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            document.getElementById('toast-icon').className = esErr ? "ri-error-warning-fill text-red-400 text-xl" : "ri-checkbox-circle-fill text-emerald-400 text-xl";
+            t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 3500);
+        }
+
+        // --- VERIFICAR ESTADO DE LA CUENTA (BLOQUEO RN-03) ---
+        async function verificarEstadoVecino() {
+            try {
+                const res = await fetch('/api/mis-datos');
+                const d = await res.json();
+                if (d.exito && d.usuario) {
+                    const u = d.usuario;
+                    if (u.cuenta_suspendida == 1 || u.estado_aprobacion === 'Rechazado') {
+                        cuentaBloqueadaGlobal = true;
+                        document.getElementById('bannerSuspendido').classList.remove('hidden');
+                        
+                        // Modificar tarjeta KPI de Estado
+                        document.getElementById('kpiBarraEstado').className = "absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 to-rose-600";
+                        document.getElementById('kpiTituloEstado').innerText = "Cuenta Suspendida";
+                        document.getElementById('kpiTextoEstado').innerHTML = `<i class="ri-error-warning-fill text-2xl"></i> Bloqueada`;
+                        document.getElementById('kpiTextoEstado').className = "text-2xl font-extrabold text-red-600 mt-1.5 font-mono flex items-center gap-1.5";
+                        document.getElementById('kpiIconoEstado').className = "w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center text-xl shadow-lg shadow-red-600/30";
+                        document.getElementById('kpiSubEstado').innerHTML = `<i class="ri-close-circle-line"></i> Sanción RN-03`;
+                        document.getElementById('kpiSubEstado').className = "text-red-600 font-bold flex items-center gap-1";
+                        document.getElementById('txtEstadoRol').innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span> Suspendido`;
+
+                        // Deshabilitar botones de reportar y S.O.S
+                        const btnReporte1 = document.getElementById('btnHeaderReporte');
+                        const btnReporte2 = document.getElementById('btnMapaReporte');
+                        const btnReporte3 = document.getElementById('btnSeccionReporte');
+                        const btnSOS = document.getElementById('btnSosPrincipal');
+
+                        if(btnReporte1) btnReporte1.style.opacity = "0.5";
+                        if(btnReporte2) btnReporte2.style.opacity = "0.5";
+                        if(btnReporte3) btnReporte3.style.opacity = "0.5";
+                        if(btnSOS) btnSOS.style.opacity = "0.5";
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // --- GPS EXACTO EN TIEMPO REAL PARA EL REPORTE ---
+        function obtenerUbicacionGPSReporte() {
+            if (cuentaBloqueadaGlobal) {
+                showToast("Tu cuenta está suspendida. No puedes emitir reportes.", true);
+                return;
+            }
+
+            const estadoTxt = document.getElementById('gpsEstadoTexto');
+            const badgePrec = document.getElementById('badgePrecision');
+            
+            if (!navigator.geolocation) {
+                showToast("Tu dispositivo no soporta geolocalización", true);
+                return;
+            }
+
+            estadoTxt.innerText = "Buscando satélites GPS en tiempo real...";
+            showToast("Conectando con el sensor GPS...");
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    const precision = pos.coords.accuracy;
+
+                    document.getElementById('latitud').value = lat;
+                    document.getElementById('longitud').value = lng;
+                    document.getElementById('origen_ubicacion').value = 'GPS_En_Tiempo_Real';
+
+                    const coordStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                    document.getElementById('modalCoordText').innerText = coordStr;
+                    
+                    estadoTxt.innerHTML = `<span class="text-emerald-600 dark:text-emerald-400 font-bold">¡Ubicación GPS en tiempo real capturada con éxito!</span>`;
+                    badgePrec.innerText = `±${precision.toFixed(0)}m`;
+                    badgePrec.className = "text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded-full";
+
+                    showToast("Ubicación exacta registrada correctamente");
+                },
+                (err) => {
+                    console.error(err);
+                    estadoTxt.innerHTML = `<span class="text-red-500 font-bold">No se pudo acceder al GPS. Se mantiene la posición base.</span>`;
+                    showToast("Error al obtener la ubicación GPS", true);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
+// --- FUNCIONES DE FORMATEO ROBUSTAS (IGUALES AL ADMIN DASHBOARD) ---
+        function formatearHoraGT(fechaStr) {
+            if (!fechaStr) return '';
+            try {
+                const partes = fechaStr.replace('T', ' ').split(' ');
+                if (partes.length >= 2) {
+                    const tiempoPartes = partes[1].split(':');
+                    if (tiempoPartes.length >= 2) {
+                        let h = parseInt(tiempoPartes[0], 10);
+                        const m = tiempoPartes[1];
+                        const s = tiempoPartes[2] ? tiempoPartes[2].substring(0, 2) : '00';
+                        const ampm = h >= 12 ? 'p. m.' : 'a. m.';
+                        h = h % 12 || 12;
+                        return `${h}:${m}:${s} ${ampm}`;
+                    }
+                }
+            } catch (e) {}
+            return fechaStr;
+        }
+
+        function formatearFechaHoraGT(fechaStr) {
+            if (!fechaStr) return '';
+            try {
+                const partes = fechaStr.replace('T', ' ').split(' ');
+                if (partes.length >= 2) {
+                    const fechaPartes = partes[0].split('-');
+                    if (fechaPartes.length === 3) {
+                        const anio = fechaPartes[0];
+                        const mes = fechaPartes[1];
+                        const dia = fechaPartes[2];
+                        return `${dia}/${mes}/${anio}, ${formatearHoraGT(fechaStr)}`;
+                    }
+                }
+            } catch (e) {}
+            return fechaStr;
+        }
+
+        // --- SISTEMA DE GRABACIÓN DE AUDIO ---
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let blobAudioGrabado = null;
+        let intervaloAudio = null;
+        let segundosGrabados = 0;
+
+        async function alternarGrabacionVoz() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                clearInterval(intervaloAudio);
+                document.getElementById('txtBtnGrabar').innerText = "Regrabar Voz";
+                document.getElementById('btnGrabarVoz').className = "flex-1 py-2.5 px-3.5 bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5";
+            } else {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    segundosGrabados = 0;
+
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => {
+                        blobAudioGrabado = new Blob(audioChunks, { type: 'audio/webm' });
+                        const audioURL = URL.createObjectURL(blobAudioGrabado);
+                        const player = document.getElementById('reproductorPreviaVoz');
+                        player.src = audioURL;
+                        player.classList.remove('hidden');
+                        document.getElementById('btnBorrarAudio').classList.remove('hidden');
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+
+                    mediaRecorder.start();
+                    document.getElementById('txtBtnGrabar').innerText = "Detener Grabación";
+                    document.getElementById('btnGrabarVoz').className = "flex-1 py-2.5 px-3.5 bg-red-700 animate-pulse text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow";
+                    
+                    intervaloAudio = setInterval(() => {
+                        segundosGrabados++;
+                        const min = String(Math.floor(segundosGrabados / 60)).padStart(2, '0');
+                        const seg = String(segundosGrabados % 60).padStart(2, '0');
+                        document.getElementById('tiempoGrabacion').innerText = `${min}:${seg}`;
+                        if (segundosGrabados >= 30) alternarGrabacionVoz();
+                    }, 1000);
+                } catch (e) {
+                    showToast("No se pudo acceder al micrófono", true);
+                }
+            }
+        }
+
+        function descartarAudio() {
+            blobAudioGrabado = null;
+            document.getElementById('reproductorPreviaVoz').classList.add('hidden');
+            document.getElementById('reproductorPreviaVoz').src = '';
+            document.getElementById('btnBorrarAudio').classList.add('hidden');
+            document.getElementById('txtBtnGrabar').innerText = "Grabar Nota de Voz";
+            document.getElementById('tiempoGrabacion').innerText = "00:00";
+        }
+
+        // --- PREVIA FOTO ---
+        function mostrarPreviaFoto(event) {
+            const input = event.target;
+            const caja = document.getElementById('cajaPrevia');
+            const img = document.getElementById('imgPrevia');
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = e => { img.src = e.target.result; caja.classList.remove('hidden'); };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        function quitarFotoPrevia() {
+            document.getElementById('foto').value = '';
+            document.getElementById('imgPrevia').src = '';
+            document.getElementById('cajaPrevia').classList.add('hidden');
+        }
+
+        // --- NOTIFICACIONES & COMUNICADOS ---
+        function toggleMenuNotificaciones() {
+            document.getElementById('dropdownNotificaciones').classList.toggle('hidden');
+        }
+
+        async function cargarNotificaciones() {
+            try {
+                const res = await fetch('/api/mis-notificaciones');
+                const d = await res.json();
+                const cont = document.getElementById('listaNotificaciones');
+                const badge = document.getElementById('badgeNotificaciones');
+
+                if (d.exito && d.notificaciones) {
+                    if (d.notificaciones.length === 0) {
+                        cont.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 italic">Sin avisos pendientes.</div>`;
+                        badge.classList.add('hidden');
+                        return;
+                    }
+                    badge.innerText = d.notificaciones.length;
+                    badge.classList.remove('hidden');
+                    cont.innerHTML = '';
+                    d.notificaciones.forEach(n => {
+                        cont.innerHTML += `
+                            <div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl transition flex items-start gap-2.5">
+                                <i class="${n.icono} text-lg mt-0.5"></i>
+                                <div>
+                                    <h5 class="text-xs font-bold text-slate-900 dark:text-white">${n.titulo}</h5>
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">${n.mensaje}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (err) {}
+        }
+
+        async function cargarComunicados() {
+            try {
+                const res = await fetch('/api/comunicados');
+                const d = await res.json();
+                const cont = document.getElementById('muroComunicados');
+                if (d.exito && d.data) {
+                    document.getElementById('kpi-total-comunicados').innerText = d.data.length;
+                    if (d.data.length === 0) {
+                        cont.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">No hay avisos emitidos recientemente.</p>`;
+                        return;
+                    }
+                    cont.innerHTML = '';
+                    d.data.forEach(c => {
+                        cont.innerHTML += `
+                            <div class="p-5 rounded-3xl bg-white/60 dark:bg-slate-900/40 border-2 border-amber-100 dark:border-amber-950/60 hover:border-amber-400 transition relative overflow-hidden group shadow-sm flex flex-col justify-between space-y-3">
+                                <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 dark:bg-amber-950/30 rounded-full group-hover:scale-125 transition duration-300 pointer-events-none"></div>
+                                
+                                <div class="space-y-2 relative z-10">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase font-mono bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                                            ${c.categoria}
+                                        </span>
+                                        <i class="ri-pushpin-2-fill text-amber-500 text-sm"></i>
+                                    </div>
+                                    <h4 class="font-extrabold text-sm text-slate-900 dark:text-white line-clamp-1">${c.titulo}</h4>
+                                    <p class="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed font-medium">${c.contenido}</p>
+                                </div>
+
+                                <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono relative z-10">
+                                    <span class="flex items-center gap-1">
+                                        <i class="ri-time-line"></i> ${formatearFechaHoraGT(c.fecha_publicacion)}
+                                    </span>
+                                    <span class="text-amber-600 dark:text-amber-400 font-bold">COCODE</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function abrirModalReporte() {
+            if (cuentaBloqueadaGlobal) {
+                showToast("Acción bloqueada: tu cuenta se encuentra suspendida (RN-03).", true);
+                return;
+            }
+            document.getElementById('modalReporte').classList.remove('hidden');
+        }
+
+        function cerrarModalReporte() { 
+            quitarFotoPrevia();
+            descartarAudio();
+            document.getElementById('modalReporte').classList.add('hidden'); 
+        }
+
+        function verFotoModal(url) {
+            document.getElementById('imgModalPreview').src = url;
+            document.getElementById('modalFotoPreview').classList.remove('hidden');
+        }
+        function cerrarModalFoto() {
+            document.getElementById('modalFotoPreview').classList.add('hidden');
+            document.getElementById('imgModalPreview').src = '';
+        }
+
+        // --- PUNTOS SEGUROS COMUNITARIOS (POI) ---
+        let infraLayer = L.layerGroup();
+        let mostrandoInfra = false;
+
+        async function cargarPuntosInteres() {
+            try {
+                const res = await fetch('/api/puntos-interes');
+                const d = await res.json();
+                if (d.exito && d.data) {
+                    infraLayer.clearLayers();
+                    d.data.forEach(p => {
+                        let iconoHtml = 'ri-building-2-fill';
+                        let colorFondo = 'bg-slate-900';
+
+                        if (p.categoria === 'Salud') { iconoHtml = 'ri-first-aid-kit-fill'; colorFondo = 'bg-blue-600'; }
+                        else if (p.categoria === 'Auxiliatura') { iconoHtml = 'ri-government-fill'; colorFondo = 'bg-red-600'; }
+                        else if (p.categoria === 'Punto de Reunion') { iconoHtml = 'ri-run-fill'; colorFondo = 'bg-emerald-600'; }
+                        else if (p.categoria === 'Agua / Hidrante') { iconoHtml = 'ri-drop-fill'; colorFondo = 'bg-cyan-600'; }
+
+                        const customMarker = L.divIcon({
+                            html: `<div class="w-8 h-8 rounded-full ${colorFondo} text-white flex items-center justify-center shadow-lg border-2 border-white"><i class="${iconoHtml} text-xs"></i></div>`,
+                            className: 'custom-poi-marker',
+                            iconSize: [32, 32]
+                        });
+
+                        L.marker([p.latitud, p.longitud], { icon: customMarker })
+                            .bindPopup(`
+                                <div class="text-slate-900 text-center p-1 font-sans">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-800 uppercase font-mono">${p.categoria}</span>
+                                    <h4 class="font-bold text-xs mt-1 text-slate-900">${p.nombre}</h4>
+                                    <p class="text-[11px] text-slate-500">${p.descripcion}</p>
+                                    ${p.contacto && p.contacto !== 'N/A' ? `<a href="tel:${p.contacto}" class="mt-1 inline-block text-xs text-blue-600 font-bold font-mono">Tel: ${p.contacto}</a>` : ''}
+                                </div>
+                            `)
+                            .addTo(infraLayer);
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function toggleCapaInfraestructura() {
+            mostrandoInfra = !mostrandoInfra;
+            const btn = document.getElementById('btnCapaInfra');
+            const txt = document.getElementById('txtCapaInfra');
+            if (mostrandoInfra) {
+                map.addLayer(infraLayer);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-emerald-600 text-white transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Ocultar Puntos Seguros";
+            } else {
+                map.removeLayer(infraLayer);
+                btn.className = "px-4 py-2 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100 transition flex items-center gap-1.5 shadow-sm";
+                txt.innerText = "Ver Puntos Seguros";
+            }
+        }
+
+        async function cargarCatalogosYMapa() {
+            try {
+                const [resCat, resRep] = await Promise.all([fetch('/api/catalogos'), fetch('/api/reportes')]);
+                const catData = await resCat.json();
+                const repData = await resRep.json();
+
+                if (catData.exito) {
+                    const s = document.getElementById('id_tipo');
+                    s.innerHTML = '';
+                    catData.tipos.forEach(t => { s.innerHTML += `<option value="${t.id_tipo}">${t.nombre} (${t.nivel_prioridad})</option>`; });
+                }
+
+                if (repData.exito) {
+                    markersGroup.clearLayers();
+                    const validados = repData.data.filter(r => ['aprobado', 'atendido'].includes((r.estado || '').toLowerCase()));
+                    validados.forEach(r => {
+                        let fotoPopup = r.foto ? `<div class="mt-2 text-center"><img src="${r.foto.startsWith('http') ? r.foto : '/static/uploads/reportes/' + r.foto}" class="w-full h-24 object-cover rounded-xl border border-slate-200"></div>` : '';
+                        L.marker([r.latitud, r.longitud]).addTo(markersGroup)
+                            .bindPopup(`<div class="text-slate-900 p-1 font-sans"><b>${r.codigo_seguimiento} - ${r.tipo}</b><br>${r.descripcion}${fotoPopup}</div>`);
+                    });
+                }
+            } catch (err) {}
+        }
+
+        // --- MIS REPORTES Y DIFUSIÓN EN WHATSAPP ---
+        function compartirEnWhatsApp(codigo, tipo, lat, lng, desc) {
+            const texto = `🚨 *ALERTA VECINAL - CHAMPOLLAP SOS*\n\n*Tipo:* ${tipo}\n*Reporte:* ${codigo}\n*Detalle:* ${desc}\n*Ubicación Satelital:* https://maps.google.com/?q=${lat},${lng}\n\n_Reporte verificado por la directiva comunitaria._`;
+            const urlWA = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+            window.open(urlWA, '_blank');
+        }
+
+        async function cargarMisReportes() {
+            const cont = document.getElementById('listaMisReportes');
+            try {
+                const res = await fetch('/api/mis-reportes');
+                const d = await res.json();
+                if (d.exito && d.data) {
+                    document.getElementById('kpi-mis-reportes').innerText = d.data.length;
+                    if (d.data.length === 0) {
+                        cont.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">No has emitido ningún reporte todavía.</div>`;
+                        return;
+                    }
+                    cont.innerHTML = '';
+                    d.data.forEach(r => {
+                        const estado = (r.estado || '').toLowerCase();
+                        let paso1 = 'bg-emerald-500 text-white font-bold';
+                        let paso2 = estado === 'pendiente' ? 'bg-amber-400 text-slate-900 font-bold animate-pulse' : (['aprobado', 'atendido'].includes(estado) ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 dark:bg-slate-700 text-slate-400');
+                        let paso3 = estado === 'atendido' ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 dark:bg-slate-700 text-slate-400';
+
+                        let urlFoto = r.foto ? (r.foto.startsWith('http') ? r.foto : `/static/uploads/reportes/${r.foto}`) : null;
+                        let urlAudio = r.audio ? (r.audio.startsWith('http') ? r.audio : `/static/uploads/audios/${r.audio}`) : null;
+
+                        let miniatura = urlFoto ? `<img src="${urlFoto}" onclick="verFotoModal('${urlFoto}')" class="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 cursor-pointer shadow-sm shrink-0 hover:scale-105 transition">` : '';
+                        let audioPlayer = urlAudio ? `
+                            <div class="mt-2.5 p-2 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-400 block mb-1 font-mono">Nota de Voz Adjunta:</span>
+                                <audio controls class="w-full h-8"><source src="${urlAudio}" type="audio/webm"></audio>
+                            </div>
+                        ` : '';
+
+                        cont.innerHTML += `
+                            <div class="p-5 bg-white/60 dark:bg-slate-900/40 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.02)] space-y-3.5">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="flex items-start gap-3.5">
+                                        ${miniatura}
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-black text-xs font-mono text-slate-900 dark:text-white">${r.codigo_seguimiento}</span>
+                                                <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-700 rounded-lg">${r.tipo}</span>
+                                            </div>
+                                            <p class="text-xs text-slate-700 dark:text-slate-300 mt-1.5 leading-relaxed font-medium">${r.descripcion}</p>
+                                            <p class="text-[10px] text-slate-400 mt-1 font-mono">${formatearFechaHoraGT(r.fecha_hora_incidente)}</p>
+                                        </div>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase border shrink-0 ${
+                                        estado === 'aprobado' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                        estado === 'pendiente' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                                    }">${r.estado}</span>
+                                </div>
+
+                                ${audioPlayer}
+
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-700">
+                                    <div class="grid grid-cols-3 gap-1.5 text-[10px] font-semibold text-center flex-1">
+                                        <div class="py-1 rounded-xl ${paso1}">1. Emitido</div>
+                                        <div class="py-1 rounded-xl ${paso2}">2. COCODE</div>
+                                        <div class="py-1 rounded-xl ${paso3}">3. Atendido</div>
+                                    </div>
+
+                                    <button onclick="compartirEnWhatsApp('${r.codigo_seguimiento}', '${r.tipo}', ${r.latitud}, ${r.longitud}, '${r.descripcion}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition shrink-0">
+                                        <i class="ri-whatsapp-line text-sm"></i> Difundir en WhatsApp
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            } catch (err) {}
+        }
+
+        // --- INDEXEDDB PARA CONTINGENCIA OFFLINE ---
+        let dbOffline = null;
+        const reqDB = indexedDB.open("ChampollapOfflineDB", 1);
+        reqDB.onupgradeneeded = (e) => {
+            dbOffline = e.target.result;
+            if (!dbOffline.objectStoreNames.contains("reportes_pendientes")) {
+                dbOffline.createObjectStore("reportes_pendientes", { keyPath: "id", autoIncrement: true });
+            }
+        };
+        reqDB.onsuccess = (e) => {
+            dbOffline = e.target.result;
+            sincronizarReportesOffline();
+        };
+
+        function guardarReporteOffline(datos) {
+            if (!dbOffline) return;
+            const tx = dbOffline.transaction("reportes_pendientes", "readwrite");
+            const store = tx.objectStore("reportes_pendientes");
+            store.add(datos);
+            tx.oncomplete = () => {
+                showToast("📦 Guardado en tu dispositivo. Se enviará al recuperar conexión.");
+                cerrarModalReporte();
+            };
+        }
+
+        async function sincronizarReportesOffline() {
+            if (!navigator.onLine || !dbOffline) return;
+            const tx = dbOffline.transaction("reportes_pendientes", "readonly");
+            const store = tx.objectStore("reportes_pendientes");
+            const req = store.getAll();
+            req.onsuccess = async () => {
+                const lista = req.result;
+                if (!lista || lista.length === 0) return;
+
+                showToast(`Sincronizando ${lista.length} reporte(s) offline...`);
+                for (const item of lista) {
+                    const formData = new FormData();
+                    formData.append('id_tipo', item.id_tipo);
+                    formData.append('descripcion', item.descripcion + " (Vía offline)");
+                    formData.append('latitud', item.latitud);
+                    formData.append('longitud', item.longitud);
+                    formData.append('origen_ubicacion', item.origen_ubicacion);
+                    if (item.foto) formData.append('foto', item.foto);
+                    if (item.audio) formData.append('audio', item.audio, 'voz.webm');
+
+                    try {
+                        const res = await fetch('/api/reportes', { method: 'POST', body: formData });
+                        const d = await res.json();
+                        if (res.ok && d.exito) {
+                            const txDel = dbOffline.transaction("reportes_pendientes", "readwrite");
+                            txDel.objectStore("reportes_pendientes").delete(item.id);
+                        }
+                    } catch (err) {
+                        break;
+                    }
+                }
+                cargarMisReportes();
+                cargarCatalogosYMapa();
+            };
+        }
+
+        window.addEventListener('online', () => {
+            document.getElementById('bannerOffline').classList.add('hidden');
+            showToast("Conexión restablecida");
+            sincronizarReportesOffline();
+        });
+        window.addEventListener('offline', () => {
+            document.getElementById('bannerOffline').classList.remove('hidden');
+            showToast("Sin conexión. Modo Offline activado", true);
+        });
+
+        // --- SUBMIT REPORTE (SIN FECHA MANUAL PARA QUE EL SERVIDOR PONGA LA HORA OFICIAL) ---
+        document.getElementById('formIncidente').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (cuentaBloqueadaGlobal) {
+                showToast("Acción bloqueada: tu cuenta se encuentra suspendida (RN-03).", true);
+                return;
+            }
+
+            const btn = document.getElementById('btnEnviar');
+            btn.disabled = true;
+            btn.innerText = "Emitiendo...";
+
+            if (!navigator.onLine) {
+                const datosOffline = {
+                    id_tipo: document.getElementById('id_tipo').value,
+                    descripcion: document.getElementById('descripcion').value.trim(),
+                    latitud: document.getElementById('latitud').value,
+                    longitud: document.getElementById('longitud').value,
+                    origen_ubicacion: document.getElementById('origen_ubicacion').value,
+                    foto: document.getElementById('foto').files[0] || null,
+                    audio: blobAudioGrabado || null
+                };
+                guardarReporteOffline(datosOffline);
+                btn.disabled = false;
+                btn.innerText = "Emitir Reporte";
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('id_tipo', document.getElementById('id_tipo').value);
+            formData.append('descripcion', document.getElementById('descripcion').value.trim());
+            formData.append('latitud', document.getElementById('latitud').value);
+            formData.append('longitud', document.getElementById('longitud').value);
+            formData.append('origen_ubicacion', document.getElementById('origen_ubicacion').value);
+
+            const inputFile = document.getElementById('foto');
+            if (inputFile.files.length > 0) formData.append('foto', inputFile.files[0]);
+            if (blobAudioGrabado) formData.append('audio', blobAudioGrabado, 'voz.webm');
+
+            try {
+                const res = await fetch('/api/reportes', { method: 'POST', body: formData });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    cerrarModalReporte();
+                    document.getElementById('descripcion').value = '';
+                    cargarCatalogosYMapa();
+                    cargarMisReportes();
+                    cargarNotificaciones();
+                    showToast(`Reporte ${d.codigo_seguimiento} emitido exitosamente`);
+                } else {
+                    showToast(d.mensaje || "Error al emitir reporte", true);
+                }
+            } catch (err) {
+                showToast("Error de conexión", true);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Emitir Reporte";
+            }
+        });
+
+        // --- ALERTA S.O.S (CON VALIDACIÓN DE BLOQUEO) ---
+        function abrirModalSOS() {
+            if (cuentaBloqueadaGlobal) {
+                showToast("Acción bloqueada: tu cuenta se encuentra suspendida por reportes falsos (RN-03).", true);
+                return;
+            }
+            document.getElementById('modalSOSConfirm').classList.remove('hidden');
+        }
+        function cerrarModalSOS() {
+            document.getElementById('modalSOSConfirm').classList.add('hidden');
+        }
+
+        async function ejecutarAlertaSOS() {
+            if (cuentaBloqueadaGlobal) {
+                showToast("Acción bloqueada: tu cuenta se encuentra suspendida (RN-03).", true);
+                return;
+            }
+
+            cerrarModalSOS();
+            try {
+                const res = await fetch('/api/alertas-rapidas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ latitud: document.getElementById('latitud').value, longitud: document.getElementById('longitud').value })
+                });
+                const d = await res.json();
+                if (res.ok && d.exito) {
+                    showToast("🚨 ¡Alerta S.O.S transmitida exitosamente!");
+                } else {
+                    showToast(d.mensaje || "Error al transmitir alerta", true);
+                }
+            } catch (err) {
+                showToast("Falla de conexión al enviar alerta", true);
+            }
+        }
+
+        window.onload = async () => {
+            await verificarEstadoVecino(); // Validar bloqueo antes de cargar todo
+            cargarCatalogosYMapa();
+            cargarMisReportes();
+            cargarPuntosInteres();
+            cargarNotificaciones();
+            cargarComunicados();
+            
+            // Intervalos en segundo plano
+            setInterval(cargarNotificaciones, 15000);
+            setInterval(verificarEstadoVecino, 10000); // Revisa si fue suspendido o reactivado sin recargar la página
+        };
+    </script>
+</body>
+</html>
