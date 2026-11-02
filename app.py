@@ -167,7 +167,7 @@ def inicializar_sistema():
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"[AVISO] Error en inicialización: {e}")
+        print(f"[AVISO] Advertencia de conexión a BD en inicio (la app continuará encendiendo): {e}")
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
