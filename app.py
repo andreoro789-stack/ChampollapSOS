@@ -59,7 +59,6 @@ db_config = {
     'database': os.environ.get('DB_NAME', 'bd_incidentes_champollap'),
     'port': int(os.environ.get('DB_PORT', 3306)),
     'time_zone': '-06:00',
-    'connection_timeout': 5
 }
 
 def get_db_connection():
