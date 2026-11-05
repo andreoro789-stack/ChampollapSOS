@@ -608,33 +608,61 @@ def obtener_reportes():
     conn = None
     cursor = None
     try:
+        id_usuario = session['usuario']['id_usuario']
+        id_rol = session['usuario'].get('id_rol')
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        query = """
-            SELECT 
-                r.id_reporte, 
-                r.id_estado,
-                r.codigo_seguimiento, 
-                r.descripcion, 
-                r.foto,
-                r.audio,
-                r.resolucion_admin,
-                CAST(r.latitud AS FLOAT) as latitud, 
-                CAST(r.longitud AS FLOAT) as longitud, 
-                t.nombre AS tipo, 
-                t.nivel_prioridad, 
-                e.nombre AS estado, 
-                r.fecha_hora_incidente,
-                r.fecha_registro,
-                CONCAT(u.nombres, ' ', u.apellidos) AS usuario_nombre
-            FROM reportes r
-            INNER JOIN tipos_incidente t ON r.id_tipo = t.id_tipo
-            INNER JOIN estados_reporte e ON r.id_estado = e.id_estado
-            INNER JOIN usuarios u ON r.id_usuario = u.id_usuario
-            WHERE r.es_falso_reporte = 0
-            ORDER BY r.fecha_registro DESC
-        """
-        cursor.execute(query)
+
+        # Si es Administrador (Rol 1), devuelve TODOS los reportes con datos del vecino para la auditoría
+        if id_rol == 1:
+            query = """
+                SELECT 
+                    r.id_reporte, 
+                    r.id_estado,
+                    r.codigo_seguimiento, 
+                    r.descripcion, 
+                    r.foto,
+                    r.audio,
+                    CAST(r.latitud AS FLOAT) as latitud, 
+                    CAST(r.longitud AS FLOAT) as longitud, 
+                    t.nombre AS tipo, 
+                    t.nivel_prioridad, 
+                    e.nombre AS estado, 
+                    r.fecha_hora_incidente,
+                    r.fecha_registro,
+                    CONCAT(u.nombres, ' ', u.apellidos) AS usuario_nombre,
+                    u.telefono AS usuario_telefono
+                FROM reportes r
+                INNER JOIN tipos_incidente t ON r.id_tipo = t.id_tipo
+                INNER JOIN estados_reporte e ON r.id_estado = e.id_estado
+                INNER JOIN usuarios u ON r.id_usuario = u.id_usuario
+                ORDER BY r.fecha_registro DESC
+            """
+            cursor.execute(query)
+        else:
+            # Si es un Vecino normal, solo le devuelve sus propios reportes activos
+            query = """
+                SELECT 
+                    r.id_reporte, 
+                    r.codigo_seguimiento, 
+                    r.descripcion, 
+                    r.foto,
+                    r.audio,
+                    CAST(r.latitud AS FLOAT) as latitud, 
+                    CAST(r.longitud AS FLOAT) as longitud, 
+                    t.nombre AS tipo, 
+                    t.nivel_prioridad, 
+                    e.nombre AS estado, 
+                    r.fecha_hora_incidente,
+                    r.fecha_registro
+                FROM reportes r
+                INNER JOIN tipos_incidente t ON r.id_tipo = t.id_tipo
+                INNER JOIN estados_reporte e ON r.id_estado = e.id_estado
+                WHERE r.id_usuario = %s AND r.es_falso_reporte = 0
+                ORDER BY r.fecha_registro DESC
+            """
+            cursor.execute(query, (id_usuario,))
+
         reportes = cursor.fetchall()
         return jsonify({'exito': True, 'data': reportes}), 200
     except Exception as e:
@@ -1132,6 +1160,9 @@ def listar_reportes_admin():
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+
+with app.app_context():
+    inicializar_sistema()
 
 if __name__ == '__main__':
     puerto = int(os.environ.get('PORT', 5000))
