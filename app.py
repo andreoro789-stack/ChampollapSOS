@@ -1161,8 +1161,11 @@ def listar_reportes_admin():
         if cursor: cursor.close()
         if conn: conn.close()
 
-with app.app_context():
-    inicializar_sistema()
+try:
+    with app.app_context():
+        inicializar_sistema()
+except Exception as e:
+    print(f"[AVISO CRÍTICO] No se pudo inicializar la BD al arrancar, pero la app continuará: {e}")
 
 if __name__ == '__main__':
     puerto = int(os.environ.get('PORT', 5000))
