@@ -1167,6 +1167,32 @@ try:
 except Exception as e:
     print(f"[AVISO CRÍTICO] No se pudo inicializar la BD al arrancar, pero la app continuará: {e}")
 
+
+@app.route('/api/admin/reportes/<int:id_reporte>/aprobar', methods=['PUT', 'POST'])
+@admin_required
+def aprobar_reporte_admin(id_reporte):
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Cambiar el estado del reporte a Aprobado en la base de datos
+        cursor.execute("""
+            UPDATE reportes 
+            SET id_estado = (SELECT id_estado FROM estados_reporte WHERE nombre = 'Aprobado' LIMIT 1)
+            WHERE id_reporte = %s
+        """, (id_reporte,))
+        conn.commit()
+
+        return jsonify({'exito': True, 'mensaje': 'Reporte validado y publicado exitosamente en el mapa comunitario.'}), 200
+    except Exception as e:
+        if conn: conn.rollback()
+        return jsonify({'exito': False, 'mensaje': str(e)}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+        
 if __name__ == '__main__':
     puerto = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=puerto)
