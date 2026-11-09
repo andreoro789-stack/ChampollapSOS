@@ -1192,7 +1192,38 @@ def aprobar_reporte_admin(id_reporte):
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
+
+@app.route('/api/admin/reportes/<int:id_reporte>/estado', methods=['PUT', 'POST'])
+@admin_required
+def cambiar_estado_reporte_admin(id_reporte):
+    conn = None
+    cursor = None
+    try:
+        data = request.json or {}
+        nuevo_estado = data.get('estado', 'Aprobado')
         
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE reportes 
+            SET id_estado = (SELECT id_estado FROM estados_reporte WHERE nombre = %s LIMIT 1)
+            WHERE id_reporte = %s
+        """, (nuevo_estado, id_reporte))
+        conn.commit()
+
+        return jsonify({'exito': True, 'mensaje': f'Reporte actualizado a {nuevo_estado} exitosamente.'}), 200
+    except Exception as e:
+        if conn: conn.rollback()
+        return jsonify({'exito': False, 'mensaje': str(e)}), 500
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+@app.route('/api/puntos-interes', methods=['GET'])
+def listar_puntos_interes():
+    return jsonify({'exito': True, 'data': []}), 200
+
 if __name__ == '__main__':
     puerto = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=puerto)
